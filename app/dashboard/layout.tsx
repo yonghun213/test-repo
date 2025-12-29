@@ -87,7 +87,7 @@ export default function DashboardLayout({
               </p>
               <p className="text-xs text-gray-500">{session?.user?.email}</p>
               <span className="inline-block mt-2 px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded">
-                {session?.user?.role}
+                {(session?.user as any)?.role}
               </span>
             </div>
             <button
