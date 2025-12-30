@@ -10,7 +10,7 @@
     "lint": "next lint",
     "test": "vitest",
     "test:e2e": "playwright test",
-    "postinstall": "prisma generate"
+    "postinstall": "next telemetry disable && prisma generate"
   },
   "keywords": [],
   "author": "",
