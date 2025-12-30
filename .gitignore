@@ -10,3 +10,4 @@ coverage
 *.sqlite
 *.sqlite-journal
 public/uploads
+cache/
