@@ -1,0 +1,192 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+
+// GET - List all menu manuals
+export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const includeIngredients = searchParams.get('includeIngredients') === 'true';
+  const includeCostVersions = searchParams.get('includeCostVersions') === 'true';
+  const groupId = searchParams.get('groupId');
+
+  try {
+    const manuals = await prisma.menuManual.findMany({
+      where: groupId ? { groupId } : undefined,
+      include: {
+        group: true,
+        ingredients: includeIngredients ? {
+          orderBy: [
+            { section: 'asc' },
+            { sortOrder: 'asc' }
+          ],
+          include: {
+            ingredientMaster: true
+          }
+        } : false,
+        costVersions: includeCostVersions ? {
+          include: {
+            template: {
+              select: {
+                id: true,
+                name: true,
+                country: true
+              }
+            }
+          }
+        } : false
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    return NextResponse.json(manuals);
+  } catch (error) {
+    console.error('Error fetching manuals:', error);
+    return NextResponse.json({ error: 'Failed to fetch manuals' }, { status: 500 });
+  }
+}
+
+// POST - Create a new menu manual (and add to all groups)
+export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { name, koreanName, imageUrl, shelfLife, yield: yieldValue, yieldUnit, sellingPrice, notes, cookingMethod, ingredients, addToAllGroups } = body;
+
+    // Get all active groups
+    const groups = addToAllGroups ? await prisma.manualGroup.findMany({
+      where: { isActive: true },
+      include: { template: { include: { items: { include: { ingredient: true } } } } }
+    }) : [];
+
+    // If no groups exist, create a default one
+    if (addToAllGroups && groups.length === 0) {
+      const defaultGroup = await prisma.manualGroup.create({
+        data: {
+          name: 'Default',
+          description: 'Default manual group'
+        }
+      });
+      groups.push({ ...defaultGroup, template: null });
+    }
+
+    const createdManuals = [];
+
+    // Create manual for each group (or just one if not adding to all groups)
+    const groupsToCreate = addToAllGroups ? groups : [null];
+
+    for (const group of groupsToCreate) {
+      const manual = await prisma.menuManual.create({
+        data: {
+          name,
+          koreanName,
+          imageUrl: imageUrl || null,
+          shelfLife,
+          yield: yieldValue,
+          yieldUnit,
+          sellingPrice: sellingPrice || null,
+          notes,
+          cookingMethod: cookingMethod ? JSON.stringify(cookingMethod) : null,
+          groupId: group?.id || null,
+          ingredients: ingredients ? {
+            create: ingredients.map((ing: any, index: number) => ({
+              ingredientId: ing.ingredientId || null,
+              name: ing.name,
+              koreanName: ing.koreanName,
+              quantity: ing.quantity || 0,
+              unit: ing.unit || 'g',
+              section: ing.section || 'MAIN',
+              sortOrder: index,
+              notes: ing.notes
+            }))
+          } : undefined
+        },
+        include: {
+          group: true,
+          ingredients: {
+            orderBy: { sortOrder: 'asc' },
+            include: {
+              ingredientMaster: true
+            }
+          }
+        }
+      });
+
+      createdManuals.push(manual);
+
+      // If group has a template, calculate cost version
+      if (group?.template) {
+        const priceMap = new Map<string, { price: number; currency: string; yieldRate: number }>();
+        for (const item of group.template.items) {
+          priceMap.set(item.ingredientId, {
+            price: item.price,
+            currency: item.currency,
+            yieldRate: item.yieldRate ?? item.ingredient.yieldRate
+          });
+        }
+
+        let totalCost = 0;
+        const costLines: Array<{
+          ingredientId: string;
+          unitPrice: number;
+          quantity: number;
+          unit: string;
+          yieldRate: number;
+          lineCost: number;
+        }> = [];
+
+        for (const ing of manual.ingredients) {
+          let unitPrice = 0;
+          let yieldRate = 100;
+
+          if (ing.ingredientId && priceMap.has(ing.ingredientId)) {
+            const priceInfo = priceMap.get(ing.ingredientId)!;
+            unitPrice = priceInfo.price;
+            yieldRate = priceInfo.yieldRate;
+          }
+
+          const lineCost = unitPrice * ing.quantity * (100 / yieldRate);
+          totalCost += lineCost;
+
+          costLines.push({
+            ingredientId: ing.id,
+            unitPrice,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            yieldRate,
+            lineCost
+          });
+        }
+
+        await prisma.manualCostVersion.create({
+          data: {
+            manualId: manual.id,
+            templateId: group.template.id,
+            name: `${group.template.name} Cost`,
+            totalCost,
+            currency: group.currency || 'CAD',
+            costPerUnit: yieldValue ? totalCost / yieldValue : null,
+            calculatedAt: new Date(),
+            costLines: {
+              create: costLines
+            }
+          }
+        });
+      }
+    }
+
+    return NextResponse.json(createdManuals, { status: 201 });
+  } catch (error) {
+    console.error('Error creating manual:', error);
+    return NextResponse.json({ error: 'Failed to create manual' }, { status: 500 });
+  }
+}

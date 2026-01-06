@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { ArrowLeft, Calendar, FileText, CheckSquare } from 'lucide-react';
+import { ArrowLeft, Calendar, FileText } from 'lucide-react';
 import StoreDetailTabs from '@/components/StoreDetailTabs';
 
 export default async function StoreDetailPage({
@@ -77,25 +77,11 @@ export default async function StoreDetailPage({
             Timeline
           </Link>
           <Link
-            href={`/dashboard/stores/${store.id}/calendar`}
-            className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <Calendar className="w-4 h-4 mr-2" />
-            Calendar
-          </Link>
-          <Link
             href={`/dashboard/stores/${store.id}/files`}
             className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
           >
             <FileText className="w-4 h-4 mr-2" />
             Files
-          </Link>
-          <Link
-            href={`/dashboard/stores/${store.id}/tasks`}
-            className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <CheckSquare className="w-4 h-4 mr-2" />
-            Tasks
           </Link>
         </div>
       </div>

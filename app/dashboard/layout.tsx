@@ -13,14 +13,18 @@ import {
   LogOut,
   Menu,
   X,
+  Building2,
 } from 'lucide-react';
 import { useState } from 'react';
+import NotificationBell from '@/components/NotificationBell';
+import GlobalSearch from '@/components/GlobalSearch';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Stores', href: '/dashboard/stores', icon: Store },
   { name: 'Templates', href: '/dashboard/templates', icon: FileText },
   { name: 'Pricing', href: '/dashboard/pricing', icon: DollarSign },
+  { name: 'Vendors', href: '/dashboard/vendors', icon: Building2 },
   { name: 'Admin', href: '/dashboard/admin', icon: Settings },
 ];
 
@@ -34,8 +38,8 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar */}
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-gray-600 bg-opacity-75 z-40 lg:hidden"
@@ -43,8 +47,9 @@ export default function DashboardLayout({
         />
       )}
 
+      {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:relative lg:flex-shrink-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -101,18 +106,28 @@ export default function DashboardLayout({
         </div>
       </div>
 
-      <div className="lg:pl-64">
-        <div className="sticky top-0 z-10 flex items-center h-16 bg-white border-b border-gray-200 px-4 lg:px-8">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Header with notification bell and search */}
+        <div className="sticky top-0 z-10 flex items-center justify-between h-12 bg-white border-b border-gray-200 px-4">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-gray-600"
+            className="text-gray-600 lg:hidden"
           >
             <Menu className="w-6 h-6" />
           </button>
-          <div className="flex-1" />
+          <div className="hidden lg:flex items-center">
+            <GlobalSearch />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="lg:hidden">
+              <GlobalSearch />
+            </div>
+            <NotificationBell />
+          </div>
         </div>
 
-        <main className="p-4 lg:p-8">{children}</main>
+        <main className="flex-1 p-4 lg:px-8 lg:py-4">{children}</main>
       </div>
     </div>
   );

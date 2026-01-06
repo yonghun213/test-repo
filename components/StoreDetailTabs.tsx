@@ -2,8 +2,19 @@
 
 import { useState } from 'react';
 import StoreForm from './StoreForm';
-import { formatDate } from '@/lib/utils';
-import toast from 'react-hot-toast';
+import CalendarView from './CalendarView';
+import TaskEditModal from './TaskEditModal';
+import TaskCreateModal from './TaskCreateModal';
+
+interface Task {
+  id: string;
+  title: string;
+  startDate: string | null;
+  dueDate: string | null;
+  status: string;
+  phase?: string;
+  priority?: string;
+}
 
 interface Props {
   store: any;
@@ -19,41 +30,71 @@ export default function StoreDetailTabs({
   userRole,
 }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'edit'>('overview');
-  const [newOpenDate, setNewOpenDate] = useState('');
-  const [openDateReason, setOpenDateReason] = useState('');
-  const [isAddingDate, setIsAddingDate] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>(store.tasks || []);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const canEdit = ['ADMIN', 'PM', 'CONTRIBUTOR'].includes(userRole);
 
-  const handleAddOpenDate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsAddingDate(true);
-
+  // Calendar event handlers
+  const handleEventDrop = async ({ event, start, end }: { event: any; start: Date; end: Date }) => {
+    const taskId = event.id || event.resource?.id;
+    if (!taskId) return;
+    
     try {
-      const response = await fetch(`/api/stores/${store.id}/open-dates`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          date: newOpenDate,
-          reason: openDateReason,
-          changedBy: userId,
-        }),
+          startDate: start.toISOString(),
+          dueDate: end.toISOString(),
+          reschedulePolicy: 'THIS_ONLY'
+        })
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to add open date');
-      }
-
-      toast.success('Open date added successfully!');
-      setNewOpenDate('');
-      setOpenDateReason('');
-      window.location.reload();
+      
+      setTasks(prev => prev.map(t => 
+        t.id === taskId 
+          ? { ...t, startDate: start.toISOString(), dueDate: end.toISOString() }
+          : t
+      ));
     } catch (error) {
-      toast.error('Failed to add open date');
-    } finally {
-      setIsAddingDate(false);
+      console.error('Failed to update task:', error);
+    }
+  };
+
+  const handleEventClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsEditModalOpen(true);
+  };
+
+  const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
+  };
+
+  const handleTaskCreate = async (taskData: Partial<Task>) => {
+    try {
+      const res = await fetch(`/api/stores/${store.id}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(taskData)
+      });
+      const newTask = await res.json();
+      setTasks(prev => [...prev, newTask]);
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      console.error('Failed to create task:', error);
     }
   };
 
@@ -87,9 +128,76 @@ export default function StoreDetailTabs({
       </div>
 
       {activeTab === 'overview' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Store Information */}
+        <div className="space-y-6">
+          {/* Top Row - Owner & Stats (Left) + Store Info (Right) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Side - Owner Information + Quick Stats */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Owner Information
+              </h3>
+              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {store.ownerName && (
+                  <div>
+                    <dt className="text-sm text-gray-500">Name</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {store.ownerName}
+                    </dd>
+                  </div>
+                )}
+                {store.ownerPhone && (
+                  <div>
+                    <dt className="text-sm text-gray-500">Phone</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {store.ownerPhone}
+                    </dd>
+                  </div>
+                )}
+                {store.ownerEmail && (
+                  <div>
+                    <dt className="text-sm text-gray-500">Email</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {store.ownerEmail}
+                    </dd>
+                  </div>
+                )}
+                {store.ownerAddress && (
+                  <div>
+                    <dt className="text-sm text-gray-500">Address</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {store.ownerAddress}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              
+              {/* Quick Stats - Horizontal Layout */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Quick Stats</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <dd className="text-2xl font-semibold text-gray-900">
+                      {tasks.length}
+                    </dd>
+                    <dt className="text-xs text-gray-500 mt-1">Total Tasks</dt>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <dd className="text-2xl font-semibold text-gray-900">
+                      {store.files.length}
+                    </dd>
+                    <dt className="text-xs text-gray-500 mt-1">Files</dt>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <dd className="text-2xl font-semibold text-gray-900">
+                      {store.milestones.length}
+                    </dd>
+                    <dt className="text-xs text-gray-500 mt-1">Milestones</dt>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Side - Store Information */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Store Information
@@ -171,159 +279,24 @@ export default function StoreDetailTabs({
                 )}
               </dl>
             </div>
-
-            {/* Owner Information */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Owner Information
-              </h3>
-              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {store.ownerName && (
-                  <div>
-                    <dt className="text-sm text-gray-500">Name</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {store.ownerName}
-                    </dd>
-                  </div>
-                )}
-                {store.ownerPhone && (
-                  <div>
-                    <dt className="text-sm text-gray-500">Phone</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {store.ownerPhone}
-                    </dd>
-                  </div>
-                )}
-                {store.ownerEmail && (
-                  <div>
-                    <dt className="text-sm text-gray-500">Email</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {store.ownerEmail}
-                    </dd>
-                  </div>
-                )}
-                {store.ownerAddress && (
-                  <div>
-                    <dt className="text-sm text-gray-500">Address</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {store.ownerAddress}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Planned Open Dates */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Planned Open Dates
-              </h3>
-
-              {canEdit && (
-                <form onSubmit={handleAddOpenDate} className="mb-4 pb-4 border-b">
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        New Date
-                      </label>
-                      <input
-                        type="date"
-                        value={newOpenDate}
-                        onChange={(e) => setNewOpenDate(e.target.value)}
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Reason
-                      </label>
-                      <input
-                        type="text"
-                        value={openDateReason}
-                        onChange={(e) => setOpenDateReason(e.target.value)}
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                        placeholder="Date changed because..."
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={isAddingDate}
-                      className="w-full px-3 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-md font-medium transition-colors disabled:opacity-50"
-                    >
-                      {isAddingDate ? 'Adding...' : 'Add Date'}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              <div className="space-y-3">
-                {store.plannedOpenDates.length === 0 ? (
-                  <p className="text-sm text-gray-500">No dates set</p>
-                ) : (
-                  store.plannedOpenDates.map((date: any, index: number) => (
-                    <div
-                      key={date.id}
-                      className={`p-3 rounded-md ${
-                        index === 0 ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <p
-                          className={`text-sm font-medium ${
-                            index === 0 ? 'text-orange-900' : 'text-gray-900'
-                          }`}
-                        >
-                          {formatDate(date.date)}
-                        </p>
-                        {index === 0 && (
-                          <span className="text-xs px-2 py-1 bg-orange-100 text-orange-800 rounded">
-                            Current
-                          </span>
-                        )}
-                      </div>
-                      {date.reason && (
-                        <p className="text-xs text-gray-600">{date.reason}</p>
-                      )}
-                      <p className="text-xs text-gray-500 mt-1">
-                        Set on {formatDate(date.createdAt)}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
+          {/* Bottom - Calendar with Task Management */}
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Task Calendar</h3>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium text-sm"
+              >
+                + Add Task
+              </button>
             </div>
-
-            {/* Quick Stats */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Quick Stats
-              </h3>
-              <dl className="space-y-3">
-                <div>
-                  <dt className="text-sm text-gray-500">Total Tasks</dt>
-                  <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                    {store.tasks.length}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500">Files</dt>
-                  <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                    {store.files.length}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500">Milestones</dt>
-                  <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                    {store.milestones.length}
-                  </dd>
-                </div>
-              </dl>
-            </div>
+            <CalendarView
+              tasks={tasks}
+              onEventDrop={handleEventDrop}
+              onEventClick={handleEventClick}
+            />
           </div>
         </div>
       ) : (
@@ -331,6 +304,24 @@ export default function StoreDetailTabs({
           <StoreForm countries={countries} userId={userId} store={store} />
         </div>
       )}
+
+      {/* Task Edit Modal */}
+      {selectedTask && (
+        <TaskEditModal
+          task={selectedTask}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleTaskUpdate}
+        />
+      )}
+
+      {/* Task Create Modal */}
+      <TaskCreateModal
+        storeId={store.id}
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSave={handleTaskCreate}
+      />
     </div>
   );
 }

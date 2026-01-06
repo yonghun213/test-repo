@@ -11,3 +11,5 @@ coverage
 *.sqlite-journal
 public/uploads
 cache/
+.vercel
+.env*.local

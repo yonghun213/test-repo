@@ -2,23 +2,26 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 // 사용자 & 인증
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String   // bcrypt hashed
-  name      String
-  role      String   @default("VIEWER") // ADMIN, PM, CONTRIBUTOR, VIEWER
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String         // bcrypt hashed
+  name          String
+  role          String         @default("VIEWER") // ADMIN, PM, CONTRIBUTOR, VIEWER
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  assignedTasks Task[]         @relation("TaskAssignee")
+  notifications Notification[]
 }
 
 // 국가 & 설정
@@ -123,6 +126,7 @@ model Task {
   description    String?
   phase          String
   ownerUserId    String?
+  assigneeId     String?
   startDate      DateTime
   dueDate        DateTime
   status         String           @default("NOT_STARTED")
@@ -138,6 +142,7 @@ model Task {
   updatedAt      DateTime         @updatedAt
   
   store          Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  assignee       User?            @relation("TaskAssignee", fields: [assigneeId], references: [id])
   dependencies   TaskDependency[] @relation("DependentTask")
   dependents     TaskDependency[] @relation("DependencyTask")
 }
@@ -190,6 +195,54 @@ model Notification {
   status    String    @default("PENDING")
   sentAt    DateTime?
   createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 거래처 (Vendor/Supplier) 관리
+model Vendor {
+  id          String   @id @default(cuid())
+  name        String             // 거래처명
+  category    String             // 카테고리: Equipment, Food, Construction, Service, etc.
+  country     String             // 국가
+  city        String?            // 도시
+  address     String?            // 주소
+  phone       String?            // 대표 전화
+  email       String?            // 대표 이메일
+  website     String?            // 웹사이트
+  notes       String?            // 메모
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  contacts    VendorContact[]
+}
+
+// 거래처 담당자
+model VendorContact {
+  id          String   @id @default(cuid())
+  vendorId    String
+  name        String             // 담당자 이름
+  position    String?            // 직책
+  phone       String?            // 전화번호
+  mobile      String?            // 휴대폰
+  email       String?            // 이메일
+  isPrimary   Boolean  @default(false) // 주 담당자 여부
+  notes       String?            // 메모
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+// 가격 변동 이력
+model PriceHistory {
+  id              String                  @id @default(cuid())
+  templateItemId  String                  // IngredientTemplateItem ID
+  oldPrice        Float                   // 변경 전 가격
+  newPrice        Float                   // 변경 후 가격
+  currency        String
+  changedBy       String                  // 변경한 사용자 ID
+  reason          String?                 // 변경 사유
+  createdAt       DateTime                @default(now())
+  templateItem    IngredientTemplateItem  @relation(fields: [templateItemId], references: [id], onDelete: Cascade)
 }
 
 // 가격/원가 모듈
@@ -272,4 +325,153 @@ model Setting {
   id    String @id @default(cuid())
   key   String @unique
   value String
+}
+
+// 식재료 마스터 데이터
+model IngredientMaster {
+  id          String                   @id @default(cuid())
+  category    String                   // Oil, Raw chicken, Sauce, Powder, Dry goods, Food, Produced
+  koreanName  String
+  englishName String
+  quantity    Float                    @default(0)
+  unit        String                   // ml, g, ea, pcs
+  yieldRate   Float                    @default(100) // 수율 (%)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  templateItems IngredientTemplateItem[]
+  manualIngredients ManualIngredient[]
+}
+
+// 식재료 템플릿 (국가별/매장별 버전)
+model IngredientTemplate {
+  id          String                   @id @default(cuid())
+  name        String                   // 템플릿 이름 (예: Mexico, Canada, Colombia)
+  country     String?                  // 국가 코드
+  description String?
+  storeIds    String?                  // 적용 매장 ID들 (comma separated)
+  isActive    Boolean                  @default(true)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  items       IngredientTemplateItem[]
+  costVersions ManualCostVersion[]
+  manualGroups ManualGroup[]
+}
+
+// 템플릿별 식재료 상세 (가격, 수량 등 오버라이드)
+model IngredientTemplateItem {
+  id              String             @id @default(cuid())
+  templateId      String
+  ingredientId    String
+  category        String?            // 오버라이드 카테고리
+  koreanName      String?            // 오버라이드 한글명
+  englishName     String?            // 오버라이드 영문명
+  quantity        Float?             // 오버라이드 수량
+  unit            String?            // 오버라이드 단위
+  yieldRate       Float?             // 오버라이드 수율
+  price           Float              @default(0) // 해당 템플릿(국가)의 가격
+  currency        String             @default("CAD") // 화폐 단위
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  template        IngredientTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  ingredient      IngredientMaster   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  priceHistory    PriceHistory[]
+
+  @@unique([templateId, ingredientId])
+}
+
+// ========================================
+// 매뉴얼 원가 관리 모델
+// ========================================
+
+// 매뉴얼 그룹 (가격 템플릿과 매뉴얼들을 묶는 단위)
+model ManualGroup {
+  id              String             @id @default(cuid())
+  name            String             // 그룹명 (예: "Canada Menu", "Mexico Menu")
+  description     String?
+  templateId      String?            // 적용된 가격 템플릿
+  currency        String             @default("CAD")
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  template        IngredientTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  manuals         MenuManual[]
+}
+
+// 메뉴 매뉴얼 (레시피 저장)
+model MenuManual {
+  id              String             @id @default(cuid())
+  name            String             // 메뉴명 (영문)
+  koreanName      String?            // 메뉴명 (한글)
+  imageUrl        String?            // 메뉴 이미지 URL
+  shelfLife       String?            // 유통기한
+  yield           Float?             // 생산량
+  yieldUnit       String?            // 생산량 단위
+  sellingPrice    Float?             // 판매가
+  notes           String?
+  cookingMethod   String?            // JSON 형태의 조리법
+  isActive        Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  groupId         String?            // 소속 그룹
+  group           ManualGroup?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  ingredients     ManualIngredient[]
+  costVersions    ManualCostVersion[]
+}
+
+// 매뉴얼 재료 (레시피 구성 재료)
+model ManualIngredient {
+  id              String             @id @default(cuid())
+  manualId        String
+  ingredientId    String?            // 마스터 식재료 연결 (없으면 직접 입력)
+  name            String             // 재료명 (영문)
+  koreanName      String?            // 재료명 (한글)
+  quantity        Float              // 사용량
+  unit            String             // 단위 (g, ml, ea 등)
+  section         String             @default("MAIN") // MAIN, SAUCE, GARNISH 등
+  sortOrder       Int                @default(0)
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  manual          MenuManual         @relation(fields: [manualId], references: [id], onDelete: Cascade)
+  ingredientMaster IngredientMaster? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  costLines       ManualCostLine[]
+}
+
+// 원가 버전 (매뉴얼 + 가격 템플릿 조합)
+model ManualCostVersion {
+  id              String             @id @default(cuid())
+  manualId        String
+  templateId      String             // 적용된 가격 템플릿
+  name            String             // 버전명 (예: "Mexico Cost v1")
+  description     String?
+  totalCost       Float              @default(0) // 총 원가
+  currency        String             @default("CAD")
+  costPerUnit     Float?             // 단위당 원가 (yield로 나눈 값)
+  isActive        Boolean            @default(true)
+  calculatedAt    DateTime?          // 마지막 계산 시점
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  manual          MenuManual         @relation(fields: [manualId], references: [id], onDelete: Cascade)
+  template        IngredientTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  costLines       ManualCostLine[]
+
+  @@unique([manualId, templateId])
+}
+
+// 원가 상세 라인 (각 재료별 원가)
+model ManualCostLine {
+  id              String             @id @default(cuid())
+  costVersionId   String
+  ingredientId    String             // ManualIngredient ID
+  unitPrice       Float              // 단가 (가격 템플릿에서)
+  quantity        Float              // 사용량
+  unit            String             // 단위
+  yieldRate       Float              @default(100) // 수율 (%)
+  lineCost        Float              // 라인 원가 = unitPrice * quantity * (100/yieldRate)
+  notes           String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  costVersion     ManualCostVersion  @relation(fields: [costVersionId], references: [id], onDelete: Cascade)
+  ingredient      ManualIngredient   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
 }

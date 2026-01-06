@@ -1,11 +1,22 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import DashboardCharts from '@/components/DashboardCharts';
+
+// Status colors for the pie chart
+const STATUS_COLORS: Record<string, string> = {
+  PLANNING: '#FFB088',
+  CONFIRMED: '#4ECDC4',
+  IN_PROGRESS: '#FF6B35',
+  OPENED: '#45B7D1',
+  ON_HOLD: '#FFEAA7',
+  CANCELLED: '#FF6B6B',
+};
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
 
-  const [storeCount, userCount, activeTaskCount] = await Promise.all([
+  const [storeCount, userCount, activeTaskCount, storesByCountry, storesByStatus] = await Promise.all([
     prisma.store.count(),
     prisma.user.count(),
     prisma.task.count({
@@ -14,6 +25,15 @@ export default async function DashboardPage() {
           in: ['NOT_STARTED', 'IN_PROGRESS'],
         },
       },
+    }),
+    prisma.store.groupBy({
+      by: ['country'],
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+    }),
+    prisma.store.groupBy({
+      by: ['status'],
+      _count: { id: true },
     }),
   ]);
 
@@ -163,6 +183,20 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Charts Section */}
+      <DashboardCharts
+        storesByCountry={storesByCountry.map((item) => ({
+          country: item.country,
+          count: item._count.id,
+          color: '',
+        }))}
+        storesByStatus={storesByStatus.map((item) => ({
+          status: item.status,
+          count: item._count.id,
+          color: STATUS_COLORS[item.status] || '#ccc',
+        }))}
+      />
     </div>
   );
 }

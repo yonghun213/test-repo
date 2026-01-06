@@ -19,6 +19,9 @@
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@libsql/client": "^0.15.15",
+    "@prisma/adapter-libsql": "^7.2.0",
     "@prisma/client": "^5.22.0",
     "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
@@ -27,6 +30,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "lucide-react": "^0.562.0",
     "next": "^16.1.1",
     "next-auth": "^4.24.13",
@@ -35,10 +40,12 @@
     "react-big-calendar": "^1.19.4",
     "react-dom": "^19.2.3",
     "react-hot-toast": "^2.6.0",
+    "recharts": "^3.6.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
