@@ -31,8 +31,8 @@ export async function GET() {
     diagnostics.adapterExports = Object.keys(adapterModule);
     diagnostics.PrismaLibSqlType = typeof adapterModule.PrismaLibSql;
     
-    // Try different export names
-    const AdapterClass = adapterModule.PrismaLibSql || adapterModule.LibSQLAdapter || adapterModule.default;
+    // Try different export names - PrismaLibSQL (capital SQL) is correct
+    const AdapterClass = adapterModule.PrismaLibSQL || adapterModule.PrismaLibSql || adapterModule.default;
     diagnostics.adapterClassFound = !!AdapterClass;
     diagnostics.adapterClassName = AdapterClass?.name || 'unknown';
     
