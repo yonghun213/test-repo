@@ -97,23 +97,61 @@ const INGREDIENT_MAPPINGS: Record<string, string> = {
 // 단위 매핑
 const UNIT_MAPPINGS: Record<string, string> = {
   '그램': 'g', '킬로그램': 'kg', '밀리리터': 'ml', '리터': 'L',
-  '분': 'minutes', '시간': 'hours', '초': 'seconds',
+  // 시간 단위 (숫자 뒤에만 적용되도록 주의)
+  '시간': 'hours', '초': 'seconds',
   '개': 'pcs', '조각': 'pieces', '인분': 'servings',
 };
 
 // 기타 표현 매핑
 const PHRASE_MAPPINGS: Record<string, string> = {
+  // 부사/형용사
   '골고루': 'evenly', '잘': 'well', '충분히': 'thoroughly',
   '완전히': 'completely', '바삭하게': 'until crispy',
+  '가볍게': 'lightly', '작은': 'small', '약': 'approximately',
+  '최대': 'maximum', '모든': 'all', '여분의': 'excess',
+  
+  // 조리 온도/불
   '중불': 'medium heat', '강불': 'high heat', '약불': 'low heat',
+  '온도': 'temperature',
+  
+  // 장소/용기
   '냉장고': 'refrigerator', '냉동고': 'freezer',
   '상온': 'room temperature', '지정 용기': 'designated container',
+  '스테인리스 볼': 'stainless steel bowl', 
+  '스테인리스 용기': 'stainless steel container',
+  '믹싱볼': 'mixing bowl', '프라이어': 'fryer',
+  '용기': 'container', '볼': 'bowl',
+  
+  // 시간 표현
+  '시간 동안': 'for hours', '분 동안': 'for minutes', '분간': 'for minutes',
+  '후에는': 'after', '후': 'after',
+  
+  // 비율/측정
+  '비율로': 'at ratio', '비율': 'ratio',
+  '이상': 'or more', '이하': 'or less',
+  
+  // 상태/조건
+  '상태': 'condition', '신선도': 'freshness',
+  '끝부분': 'end part', '부분': 'part',
+  
+  // 서빙/고객
   '고객에게': 'to customer', '손님에게': 'to customer',
+  '함께': 'with', '제공': 'serve',
+  
+  // 기타
+  '모든 재료': 'all ingredients', '조리': 'cooking',
+  '시작하기 전에': 'before starting', '과정': 'process',
+  '솔루션': 'solution', '믹스': 'mix', '파우더': 'powder',
+  '핏물': 'blood', '기름': 'oil', '가루': 'powder',
+  '피클 무': 'pickled radish', '칼집': 'cut', '작은 칼집': 'small cut',
 };
 
 // 1단계: 용어집 기반 치환 함수
 function applyTerminologyMapping(text: string): string {
   let result = text;
+  
+  // 먼저 숫자+분 패턴을 특수 처리 (예: "11분" → "11 minutes")
+  result = result.replace(/(\d+)\s*분(?!\w)/g, '$1 minutes');
   
   // 긴 표현부터 먼저 치환 (더 구체적인 표현 우선)
   const allMappings = {
@@ -248,19 +286,78 @@ export async function POST(request: NextRequest) {
     const step1Result = applyTerminologyMapping(text);
     console.log('Step 1 (Terminology mapping):', step1Result);
     
-    // 1.5단계: 문법 규칙 적용 (조사 제거 + 어순 조정)
+    // 2단계: 문법 규칙 적용 (조사 제거 + 어순 조정)
     const step2Result = applyGrammarRules(step1Result);
     console.log('Step 2 (Grammar rules):', step2Result);
     
-    // 최종 결과 반환 (AI 없이 규칙 기반만 사용)
-    return NextResponse.json({
-      original: text,
-      step1: step1Result,
-      step2: step2Result,
-      finalTranslation: step2Result,
-      usedAI: false,
-      provider: 'Rule-based (Terminology + Grammar)'
-    });
+    // 3단계: 남은 한글이 있으면 MyMemory API로 번역
+    const stillHasKorean = /[\uAC00-\uD7AF]/.test(step2Result);
+    
+    if (!stillHasKorean) {
+      // 한글이 모두 처리됨
+      return NextResponse.json({
+        original: text,
+        step1: step1Result,
+        step2: step2Result,
+        finalTranslation: step2Result,
+        usedAI: false,
+        provider: 'Rule-based only'
+      });
+    }
+
+    // 3단계: MyMemory API로 최종 다듬기
+    try {
+      console.log('Step 3: MyMemory translation for remaining Korean...');
+      
+      const encodedText = encodeURIComponent(step2Result);
+      const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=ko|en`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.responseStatus === 200 && data.responseData?.translatedText) {
+          const translation = data.responseData.translatedText;
+          
+          if (translation && !translation.includes('MYMEMORY WARNING')) {
+            console.log('Step 3 (MyMemory):', translation);
+            return NextResponse.json({
+              original: text,
+              step1: step1Result,
+              step2: step2Result,
+              finalTranslation: translation,
+              usedAI: true,
+              provider: 'Hybrid (Rules + MyMemory)'
+            });
+          }
+        }
+      }
+      
+      // MyMemory 실패시 2단계 결과 반환
+      console.warn('MyMemory failed, returning step 2 result');
+      return NextResponse.json({
+        original: text,
+        step1: step1Result,
+        step2: step2Result,
+        finalTranslation: step2Result,
+        usedAI: false,
+        aiError: 'MyMemory translation failed, using rules only'
+      });
+    } catch (apiError: any) {
+      console.error('MyMemory error:', apiError?.message);
+      return NextResponse.json({
+        original: text,
+        step1: step1Result,
+        step2: step2Result,
+        finalTranslation: step2Result,
+        usedAI: false,
+        aiError: `API failed: ${apiError?.message}`
+      });
+    }
   } catch (error) {
     console.error('Translation error:', error);
     return NextResponse.json({ error: 'Translation failed' }, { status: 500 });
