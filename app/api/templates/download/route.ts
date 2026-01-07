@@ -1,89 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Template configurations matching the client-side component
-const TEMPLATE_CONFIGS: Record<string, {
-  name: string;
-  headers: string[];
-  example: string[];
-  instructions: string[];
-}> = {
-  'ingredients-master': {
-    name: 'Ingredient Master Template',
-    headers: ['Category', 'Korean Name', 'English Name', 'Quantity', 'Unit', 'Yield Rate (%)'],
-    example: ['Oil', '식용유', 'Cooking Oil', '18', 'L', '100'],
+// All-in-One Template configuration
+const TEMPLATE_CONFIG = {
+  'all-in-one': {
+    name: 'All-in-One Ingredient Template',
+    headers: [
+      'No',
+      'Category',
+      'Korean Name',
+      'English Name',
+      'Quantity',
+      'Unit',
+      'Yield (%)',
+      'CAD',
+      'Price/unit',
+      'Supplier'
+    ],
+    headersKr: [
+      'No',
+      '카테고리',
+      '품목명 (한글)',
+      '상세사항 (영문)',
+      '수량, 용량, 무게',
+      '단위',
+      '수율',
+      'CAD',
+      'Price/unit',
+      'Supplier'
+    ],
+    example: ['1', 'Oil', '카놀라유', 'Canola oil', '16000', 'ml', '99', '$55.65', '0.0035', 'Costco'],
     instructions: [
-      'Category: Oil, Raw chicken, Sauce, Powder, Dry goods, Food, Produced',
-      'Unit: ml, g, L, kg, ea, pcs',
-      'Yield Rate: 1-100 (percentage, default 100)'
-    ]
-  },
-  'ingredients-price': {
-    name: 'Ingredient Prices Template',
-    headers: ['Template Name', 'Ingredient English Name', 'Price', 'Currency', 'Notes'],
-    example: ['Canada', 'Cooking Oil', '25.99', 'CAD', 'Costco bulk purchase'],
-    instructions: [
-      'Template Name: Must match existing template (e.g., Canada, Mexico, Colombia)',
-      'Ingredient: Must match existing master ingredient English name',
-      'Currency: CAD, USD, MXN, COP, KRW, etc.'
-    ]
-  },
-  'menu-manual': {
-    name: 'Menu Manuals Template',
-    headers: ['Menu Name (EN)', 'Menu Name (KR)', 'Group Name', 'Shelf Life', 'Yield', 'Yield Unit', 'Selling Price', 'Notes'],
-    example: ['Crispy Chicken', '크리스피 치킨', 'Canada Menu', '2 hours', '10', 'servings', '12.99', 'Popular item'],
-    instructions: [
-      'Group Name: Must match existing Manual Group name',
-      'Shelf Life: Text format (e.g., "2 hours", "1 day")',
-      'Yield Unit: servings, pieces, portions, kg, g, etc.'
-    ]
-  },
-  'manual-ingredients': {
-    name: 'Manual Ingredients Template',
-    headers: ['Manual Name (EN)', 'Ingredient Name (EN)', 'Ingredient Name (KR)', 'Quantity', 'Unit', 'Section', 'Sort Order', 'Notes'],
-    example: ['Crispy Chicken', 'Chicken Breast', '닭가슴살', '200', 'g', 'MAIN', '1', ''],
-    instructions: [
-      'Manual Name: Must match existing Menu Manual English name',
-      'Section: MAIN, SAUCE, GARNISH, SIDE, TOPPING',
-      'Unit: g, ml, ea, pcs, kg, L, tbsp, tsp',
-      'Sort Order: Number for ordering ingredients in recipe'
-    ]
-  },
-  'vendors': {
-    name: 'Vendors Template',
-    headers: ['Vendor Name', 'Category', 'Country', 'City', 'Address', 'Phone', 'Email', 'Website', 'Notes'],
-    example: ['Sysco Foods', 'Food', 'CA', 'Toronto', '123 Main St', '+1-416-555-0100', 'orders@sysco.ca', 'www.sysco.ca', 'Main food supplier'],
-    instructions: [
-      'Category: Equipment, Food, Construction, Service, Packaging, Other',
-      'Country: 2-letter country code (CA, US, MX, CO, KR)',
-      'Phone: Include country code'
-    ]
-  },
-  'grocery-prices': {
-    name: 'Grocery Prices Template',
-    headers: ['Ingredient Name (EN)', 'Country', 'Retailer', 'Package Size', 'Package Unit', 'Package Price', 'Currency', 'Tax Included', 'Source URL', 'Notes'],
-    example: ['Chicken Breast', 'CA', 'Costco', '5', 'kg', '35.99', 'CAD', 'Yes', 'https://costco.ca/...', 'Bulk pack'],
-    instructions: [
-      'Ingredient: Must match existing ingredient English name',
-      'Package Unit: g, kg, ml, L, ea, pcs',
-      'Tax Included: Yes or No',
-      'Source URL: Optional link to price source'
+      '✓ No: Sequential number (optional)',
+      '✓ Category: Oil, Raw chicken, Sauce, Powder, Dry goods, Food, Produced',
+      '✓ Korean Name: 한글 품목명',
+      '✓ English Name: Detailed English description',
+      '✓ Quantity: Package size/volume/weight',
+      '✓ Unit: ml, g, L, kg, ea, pcs',
+      '✓ Yield (%): 1-100 (수율, default 100)',
+      '✓ CAD: Total price in Canadian dollars (with $ sign or without)',
+      '✓ Price/unit: Calculated or manual unit price',
+      '✓ Supplier: Vendor name (optional)',
+      '',
+      '⚠️ Empty cells are allowed - the system will use default values',
+      '⚠️ At minimum, provide: Category, Korean Name or English Name, CAD price'
     ]
   }
 };
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const templateType = searchParams.get('type');
+  const templateType = searchParams.get('type') || 'all-in-one';
   const format = searchParams.get('format') || 'csv';
 
-  if (!templateType || !TEMPLATE_CONFIGS[templateType]) {
+  if (!TEMPLATE_CONFIG[templateType]) {
     return NextResponse.json(
-      { error: 'Invalid template type', availableTypes: Object.keys(TEMPLATE_CONFIGS) },
+      { error: 'Invalid template type', availableTypes: Object.keys(TEMPLATE_CONFIG) },
       { status: 400 }
     );
   }
 
-  const config = TEMPLATE_CONFIGS[templateType];
+  const config = TEMPLATE_CONFIG[templateType];
 
   if (format === 'xlsx') {
     // For Excel format, we'll create a proper XLSX file

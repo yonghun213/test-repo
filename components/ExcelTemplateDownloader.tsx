@@ -4,13 +4,7 @@ import { useState } from 'react';
 import { Download, FileSpreadsheet, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { Button } from './ui/Button';
 
-type TemplateType = 
-  | 'ingredients-master'
-  | 'ingredients-price'
-  | 'menu-manual'
-  | 'manual-ingredients'
-  | 'vendors'
-  | 'grocery-prices';
+type TemplateType = 'all-in-one';
 
 interface TemplateConfig {
   id: TemplateType;
@@ -18,86 +12,59 @@ interface TemplateConfig {
   nameKr: string;
   description: string;
   headers: string[];
+  headersKr: string[];
   example: string[];
   instructions: string[];
 }
 
 const TEMPLATE_CONFIGS: TemplateConfig[] = [
   {
-    id: 'ingredients-master',
-    name: 'Ingredient Master',
-    nameKr: '마스터 식재료',
-    description: 'Bulk register master ingredient data',
-    headers: ['Category', 'Korean Name', 'English Name', 'Quantity', 'Unit', 'Yield Rate (%)'],
-    example: ['Oil', '식용유', 'Cooking Oil', '18', 'L', '100'],
+    id: 'all-in-one',
+    name: 'All-in-One Ingredient Template',
+    nameKr: '통합 식재료 템플릿',
+    description: 'Complete ingredient data including master info, prices, and supplier details',
+    headers: [
+      'No',
+      'Category',
+      'Korean Name',
+      'English Name',
+      'Quantity',
+      'Unit',
+      'Yield (%)',
+      'CAD',
+      'Price/unit',
+      'Supplier'
+    ],
+    headersKr: [
+      'No',
+      '카테고리',
+      '품목명 (한글)',
+      '상세사항 (영문)',
+      '수량, 용량, 무게',
+      '단위',
+      '수율',
+      'CAD',
+      'Price/unit',
+      'Supplier'
+    ],
+    example: ['1', 'Oil', '카놀라유', 'Canola oil', '16000', 'ml', '99', '$55.65', '0.0035', 'Costco'],
     instructions: [
-      'Category: Oil, Raw chicken, Sauce, Powder, Dry goods, Food, Produced',
-      'Unit: ml, g, L, kg, ea, pcs',
-      'Yield Rate: 1-100 (percentage, default 100)'
+      '✓ No: Sequential number (optional)',
+      '✓ Category: Oil, Raw chicken, Sauce, Powder, Dry goods, Food, Produced',
+      '✓ Korean Name: 한글 품목명',
+      '✓ English Name: Detailed English description',
+      '✓ Quantity: Package size/volume/weight',
+      '✓ Unit: ml, g, L, kg, ea, pcs',
+      '✓ Yield (%): 1-100 (수율, default 100)',
+      '✓ CAD: Total price in Canadian dollars (with $ sign or without)',
+      '✓ Price/unit: Calculated or manual unit price',
+      '✓ Supplier: Vendor name (optional)',
+      '',
+      '⚠️ Empty cells are allowed - the system will use default values',
+      '⚠️ At minimum, provide: Category, Korean Name or English Name, CAD price'
     ]
-  },
-  {
-    id: 'ingredients-price',
-    name: 'Ingredient Prices',
-    nameKr: '식재료 가격',
-    description: 'Bulk update ingredient prices by country/template',
-    headers: ['Template Name', 'Ingredient English Name', 'Price', 'Currency', 'Notes'],
-    example: ['Canada', 'Cooking Oil', '25.99', 'CAD', 'Costco bulk purchase'],
-    instructions: [
-      'Template Name: Must match existing template (e.g., Canada, Mexico, Colombia)',
-      'Ingredient: Must match existing master ingredient English name',
-      'Currency: CAD, USD, MXN, COP, KRW, etc.'
-    ]
-  },
-  {
-    id: 'menu-manual',
-    name: 'Menu Manuals',
-    nameKr: '메뉴 매뉴얼',
-    description: 'Bulk register menu recipes',
-    headers: ['Menu Name (EN)', 'Menu Name (KR)', 'Group Name', 'Shelf Life', 'Yield', 'Yield Unit', 'Selling Price', 'Notes'],
-    example: ['Crispy Chicken', '크리스피 치킨', 'Canada Menu', '2 hours', '10', 'servings', '12.99', 'Popular item'],
-    instructions: [
-      'Group Name: Must match existing Manual Group name',
-      'Shelf Life: Text format (e.g., "2 hours", "1 day")',
-      'Yield Unit: servings, pieces, portions, kg, g, etc.'
-    ]
-  },
-  {
-    id: 'manual-ingredients',
-    name: 'Manual Ingredients',
-    nameKr: '매뉴얼 재료',
-    description: 'Bulk add ingredients to menu manuals',
-    headers: ['Manual Name (EN)', 'Ingredient Name (EN)', 'Ingredient Name (KR)', 'Quantity', 'Unit', 'Section', 'Sort Order', 'Notes'],
-    example: ['Crispy Chicken', 'Chicken Breast', '닭가슴살', '200', 'g', 'MAIN', '1', ''],
-    instructions: [
-      'Manual Name: Must match existing Menu Manual English name',
-      'Section: MAIN, SAUCE, GARNISH, SIDE, TOPPING',
-      'Unit: g, ml, ea, pcs, kg, L, tbsp, tsp',
-      'Sort Order: Number for ordering ingredients in recipe'
-    ]
-  },
-  {
-    id: 'vendors',
-    name: 'Vendors',
-    nameKr: '거래처',
-    description: 'Bulk register vendor/supplier information',
-    headers: ['Vendor Name', 'Category', 'Country', 'City', 'Address', 'Phone', 'Email', 'Website', 'Notes'],
-    example: ['Sysco Foods', 'Food', 'CA', 'Toronto', '123 Main St', '+1-416-555-0100', 'orders@sysco.ca', 'www.sysco.ca', 'Main food supplier'],
-    instructions: [
-      'Category: Equipment, Food, Construction, Service, Packaging, Other',
-      'Country: 2-letter country code (CA, US, MX, CO, KR)',
-      'Phone: Include country code'
-    ]
-  },
-  {
-    id: 'grocery-prices',
-    name: 'Grocery Prices',
-    nameKr: '식재료 시세',
-    description: 'Bulk update grocery price information',
-    headers: ['Ingredient Name (EN)', 'Country', 'Retailer', 'Package Size', 'Package Unit', 'Package Price', 'Currency', 'Tax Included', 'Source URL', 'Notes'],
-    example: ['Chicken Breast', 'CA', 'Costco', '5', 'kg', '35.99', 'CAD', 'Yes', 'https://costco.ca/...', 'Bulk pack'],
-    instructions: [
-      'Ingredient: Must match existing ingredient English name',
+  }
+];
       'Package Unit: g, kg, ml, L, ea, pcs',
       'Tax Included: Yes or No',
       'Source URL: Optional link to price source'
