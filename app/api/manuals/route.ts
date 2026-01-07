@@ -33,7 +33,19 @@ export async function GET(request: NextRequest) {
           }
         } : false,
         costVersions: includeCostVersions ? {
-          include: {
+          select: {
+            id: true,
+            manualId: true,
+            templateId: true,
+            // Skip 'name' field as it doesn't exist in Turso table yet
+            description: true,
+            totalCost: true,
+            currency: true,
+            costPerUnit: true,
+            isActive: true,
+            calculatedAt: true,
+            createdAt: true,
+            updatedAt: true,
             template: {
               select: {
                 id: true,
