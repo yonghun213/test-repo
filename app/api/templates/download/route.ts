@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
-function createCSV(config: typeof TEMPLATE_CONFIGS[string]): string {
+function createCSV(config: typeof TEMPLATE_CONFIG['all-in-one']): string {
   const BOM = '\uFEFF';
   const lines: string[] = [];
   
@@ -119,7 +119,7 @@ function escapeCSV(value: string): string {
   return value;
 }
 
-function createExcelXML(config: typeof TEMPLATE_CONFIGS[string]): string {
+function createExcelXML(config: typeof TEMPLATE_CONFIG['all-in-one']): string {
   // Create a simple XML spreadsheet that Excel can open
   const escapeXML = (str: string) => str
     .replace(/&/g, '&amp;')
