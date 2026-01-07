@@ -21,7 +21,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@libsql/client": "^0.15.15",
-    "@prisma/adapter-libsql": "^7.2.0",
+    "@prisma/adapter-libsql": "^5.22.0",
     "@prisma/client": "^5.22.0",
     "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
