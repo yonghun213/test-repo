@@ -499,6 +499,8 @@ export default function TemplatesPage() {
         templateId: editorTemplateId || undefined // Apply price template if selected
       };
 
+      console.log('Sending payload:', JSON.stringify(payload, null, 2));
+
       let res;
       if (editingManualId) {
         // Update existing manual
@@ -538,9 +540,28 @@ export default function TemplatesPage() {
         setActiveTab('manuals');
       } else {
         // Extract error message from response
-        const errorData = await res.json().catch(() => ({}));
-        const errorMessage = errorData.error || errorData.details || '알 수 없는 오류';
-        alert(`저장 실패: ${errorMessage}\n\n상태 코드: ${res.status}`);
+        console.error('Save failed with status:', res.status, res.statusText);
+        let errorMessage = '알 수 없는 오류';
+        let errorDetails = '';
+        
+        try {
+          const errorData = await res.json();
+          console.error('Error response data:', errorData);
+          errorMessage = errorData.error || errorData.message || '서버 오류';
+          errorDetails = errorData.details || errorData.hint || '';
+        } catch (jsonError) {
+          console.error('Failed to parse error response:', jsonError);
+          const textError = await res.text().catch(() => '응답 없음');
+          console.error('Raw error response:', textError);
+          errorDetails = textError.substring(0, 200);
+        }
+        
+        const fullMessage = errorDetails 
+          ? `저장 실패: ${errorMessage}\n\n상세: ${errorDetails}\n\n상태 코드: ${res.status}`
+          : `저장 실패: ${errorMessage}\n\n상태 코드: ${res.status}`;
+        
+        console.error('Showing error to user:', fullMessage);
+        alert(fullMessage);
       }
     } catch (error) {
       console.error('Save error:', error);
