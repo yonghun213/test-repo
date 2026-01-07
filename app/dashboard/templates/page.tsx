@@ -422,20 +422,31 @@ export default function TemplatesPage() {
             purchase: ing.notes || 'Local',
             ingredientId: ing.ingredientId
           })));
+        } else {
+          setIngredients([{ ...EMPTY_INGREDIENT }]);
         }
         
-        // Load cooking method
+        // Load cooking method - INITIALIZE FIRST
+        setCookingSteps(DEFAULT_COOKING_PROCESSES.map(p => ({ process: p, manual: '', translatedManual: '' })));
+        
         if (fullManual.cookingMethod) {
           const cookingData = typeof fullManual.cookingMethod === 'string' 
             ? JSON.parse(fullManual.cookingMethod) 
             : fullManual.cookingMethod;
-          if (Array.isArray(cookingData)) {
-            setCookingSteps(cookingData.map((step: any) => ({
-              process: step.process || '',
+          if (Array.isArray(cookingData) && cookingData.length > 0) {
+            setCookingSteps(cookingData.map((step: any, index: number) => ({
+              process: step.process || DEFAULT_COOKING_PROCESSES[index] || '',
               manual: step.manual || '',
               translatedManual: step.translatedManual || ''
             })));
           }
+        }
+        
+        // Load applied template ID from manual's group
+        if (fullManual.group?.templateId) {
+          setEditorTemplateId(fullManual.group.templateId);
+        } else {
+          setEditorTemplateId('');
         }
         
         setEditingManualId(manual.id);
@@ -544,10 +555,14 @@ export default function TemplatesPage() {
       let res;
       if (editingManualId) {
         // Update existing manual
+        const updatePayload = {
+          ...payload,
+          templateId: editorTemplateId || undefined // Keep template ID for updates
+        };
         res = await fetch(`/api/manuals/${editingManualId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(updatePayload)
         });
       } else {
         // Create new manual

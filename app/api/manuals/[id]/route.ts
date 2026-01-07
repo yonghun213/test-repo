@@ -19,6 +19,13 @@ export async function GET(
     const manual = await prisma.menuManual.findUnique({
       where: { id },
       include: {
+        group: {
+          select: {
+            id: true,
+            name: true,
+            templateId: true
+          }
+        },
         ingredients: {
           orderBy: [
             { section: 'asc' },
@@ -57,7 +64,36 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { name, koreanName, imageUrl, shelfLife, yield: yieldValue, yieldUnit, notes, isActive, ingredients, sellingPrice, cookingMethod } = body;
+    const { name, koreanName, imageUrl, shelfLife, yield: yieldValue, yieldUnit, notes, isActive, ingredients, sellingPrice, cookingMethod, templateId } = body;
+
+    // If templateId is provided, find or create the corresponding group
+    let groupId = undefined;
+    if (templateId) {
+      // Find group with this templateId
+      const group = await prisma.manualGroup.findFirst({
+        where: { templateId }
+      });
+      
+      if (group) {
+        groupId = group.id;
+      } else {
+        // Create a new group for this template
+        const template = await prisma.ingredientTemplate.findUnique({
+          where: { id: templateId }
+        });
+        
+        if (template) {
+          const newGroup = await prisma.manualGroup.create({
+            data: {
+              name: `${template.name} Manuals`,
+              templateId: template.id,
+              currency: template.country === 'CA' ? 'CAD' : 'USD'
+            }
+          });
+          groupId = newGroup.id;
+        }
+      }
+    }
 
     // Update manual and optionally replace ingredients
     const manual = await prisma.menuManual.update({
@@ -72,7 +108,8 @@ export async function PUT(
         notes,
         isActive,
         sellingPrice: sellingPrice !== undefined ? sellingPrice : undefined,
-        cookingMethod: cookingMethod ? JSON.stringify(cookingMethod) : undefined
+        cookingMethod: cookingMethod ? JSON.stringify(cookingMethod) : undefined,
+        groupId: groupId !== undefined ? groupId : undefined
       }
     });
 
@@ -103,6 +140,13 @@ export async function PUT(
     const updatedManual = await prisma.menuManual.findUnique({
       where: { id },
       include: {
+        group: {
+          select: {
+            id: true,
+            name: true,
+            templateId: true
+          }
+        },
         ingredients: {
           orderBy: { sortOrder: 'asc' },
           include: {
