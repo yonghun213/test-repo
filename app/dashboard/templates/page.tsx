@@ -1256,9 +1256,10 @@ export default function TemplatesPage() {
       {/* Saved Manuals Tab */}
       {activeTab === 'manuals' && (
         <div className="space-y-4">
-          {/* Template Filter Selector */}
+          {/* Template Filter & Bulk Application - Single Row */}
           <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-end gap-4">
+              {/* Left: Template Filter */}
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">적용된 가격 템플릿으로 필터</label>
                 <div className="flex gap-2">
@@ -1284,70 +1285,39 @@ export default function TemplatesPage() {
                   </button>
                 </div>
               </div>
-              {selectedGroupId && (
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">가격 템플릿 적용</label>
-                  <div className="flex gap-2">
-                    <select
-                      className="flex-1 px-3 py-2 border rounded-lg"
-                      id="group-template-select"
-                      defaultValue={manualGroups.find(g => g.id === selectedGroupId)?.templateId || ''}
-                    >
-                      <option value="">템플릿 선택...</option>
-                      {priceTemplates.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name} ({t.country || 'N/A'})</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => {
-                        const select = document.getElementById('group-template-select') as HTMLSelectElement;
-                        if (select.value && selectedGroupId) {
-                          applyTemplateToGroup(selectedGroupId, select.value);
-                        }
-                      }}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                    >
-                      적용
-                    </button>
-                  </div>
+
+              {/* Right: Bulk Template Application */}
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {selectedManualIds.size > 0 ? (
+                    <span className="text-blue-600 font-semibold">{selectedManualIds.size}개 선택됨</span>
+                  ) : (
+                    '가격 템플릿 선택'
+                  )}
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedTemplateId}
+                    onChange={(e) => setSelectedTemplateId(e.target.value)}
+                    className="flex-1 px-3 py-2 border rounded-lg"
+                    disabled={selectedManualIds.size === 0}
+                  >
+                    <option value="">가격 템플릿 선택...</option>
+                    {priceTemplates.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.country || 'N/A'})</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={applyTemplateToSelected}
+                    disabled={selectedManualIds.size === 0 || !selectedTemplateId}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    선택 항목에 적용
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
-
-          {/* Bulk Template Application */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600">
-                  {selectedManualIds.size > 0 ? (
-                    <span className="font-medium text-blue-600">{selectedManualIds.size}개 선택됨</span>
-                  ) : (
-                    '매뉴얼을 선택하여 가격 템플릿을 일괄 적용하세요'
-                  )}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedTemplateId}
-                  onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  className="px-3 py-2 border rounded-lg text-sm"
-                  disabled={selectedManualIds.size === 0}
-                >
-                  <option value="">가격 템플릿 선택...</option>
-                  {priceTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.country || 'N/A'})</option>
-                  ))}
-                </select>
-                <button
-                  onClick={applyTemplateToSelected}
-                  disabled={selectedManualIds.size === 0 || !selectedTemplateId}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  선택 항목에 적용
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Manuals List */}
