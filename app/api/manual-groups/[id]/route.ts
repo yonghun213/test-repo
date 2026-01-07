@@ -32,9 +32,20 @@ export async function GET(
               include: { ingredientMaster: true }
             },
             costVersions: {
-              include: { 
+              select: {
+                id: true,
+                manualId: true,
+                templateId: true,
+                description: true,
+                totalCost: true,
+                currency: true,
+                costPerUnit: true,
+                isActive: true,
+                calculatedAt: true,
+                createdAt: true,
+                updatedAt: true,
                 template: true,
-                costLines: true 
+                costLines: true
               }
             }
           },
@@ -181,7 +192,20 @@ export async function PUT(
           include: {
             costVersions: {
               where: { isActive: true },
-              include: { template: true }
+              select: {
+                id: true,
+                manualId: true,
+                templateId: true,
+                description: true,
+                totalCost: true,
+                currency: true,
+                costPerUnit: true,
+                isActive: true,
+                calculatedAt: true,
+                createdAt: true,
+                updatedAt: true,
+                template: true
+              }
             }
           }
         }

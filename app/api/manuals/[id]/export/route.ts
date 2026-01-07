@@ -59,7 +59,20 @@ export async function GET(
           orderBy: [{ section: 'asc' }, { sortOrder: 'asc' }]
         },
         costVersions: {
-          include: { template: true },
+          select: {
+            id: true,
+            manualId: true,
+            templateId: true,
+            description: true,
+            totalCost: true,
+            currency: true,
+            costPerUnit: true,
+            isActive: true,
+            calculatedAt: true,
+            createdAt: true,
+            updatedAt: true,
+            template: true
+          },
           orderBy: { createdAt: 'desc' },
           take: 1
         }

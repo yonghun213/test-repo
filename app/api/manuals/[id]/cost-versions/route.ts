@@ -18,7 +18,18 @@ export async function GET(
   try {
     const costVersions = await prisma.manualCostVersion.findMany({
       where: { manualId },
-      include: {
+      select: {
+        id: true,
+        manualId: true,
+        templateId: true,
+        description: true,
+        totalCost: true,
+        currency: true,
+        costPerUnit: true,
+        isActive: true,
+        calculatedAt: true,
+        createdAt: true,
+        updatedAt: true,
         template: true,
         costLines: {
           include: {
