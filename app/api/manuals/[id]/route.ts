@@ -27,28 +27,8 @@ export async function GET(
           include: {
             ingredientMaster: true
           }
-        },
-        costVersions: {
-          select: {
-            id: true,
-            manualId: true,
-            templateId: true,
-            description: true,
-            totalCost: true,
-            currency: true,
-            costPerUnit: true,
-            isActive: true,
-            calculatedAt: true,
-            createdAt: true,
-            updatedAt: true,
-            template: true,
-            costLines: {
-              include: {
-                ingredient: true
-              }
-            }
-          }
         }
+        // costVersions temporarily disabled - table schema needs to be fixed in Turso
       }
     });
 

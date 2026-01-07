@@ -30,24 +30,8 @@ export async function GET(
           include: {
             ingredients: {
               include: { ingredientMaster: true }
-            },
-            costVersions: {
-              select: {
-                id: true,
-                manualId: true,
-                templateId: true,
-                description: true,
-                totalCost: true,
-                currency: true,
-                costPerUnit: true,
-                isActive: true,
-                calculatedAt: true,
-                createdAt: true,
-                updatedAt: true,
-                template: true,
-                costLines: true
-              }
             }
+            // costVersions temporarily disabled - table schema needs to be fixed in Turso
           },
           orderBy: { name: 'asc' }
         }
@@ -188,27 +172,8 @@ export async function PUT(
       where: { id },
       include: {
         template: true,
-        manuals: {
-          include: {
-            costVersions: {
-              where: { isActive: true },
-              select: {
-                id: true,
-                manualId: true,
-                templateId: true,
-                description: true,
-                totalCost: true,
-                currency: true,
-                costPerUnit: true,
-                isActive: true,
-                calculatedAt: true,
-                createdAt: true,
-                updatedAt: true,
-                template: true
-              }
-            }
-          }
-        }
+        manuals: true
+          // costVersions temporarily disabled - table schema needs to be fixed in Turso
       }
     });
 

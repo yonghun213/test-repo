@@ -31,30 +31,9 @@ export async function GET(request: NextRequest) {
           include: {
             ingredientMaster: true
           }
-        } : false,
-        costVersions: includeCostVersions ? {
-          select: {
-            id: true,
-            manualId: true,
-            templateId: true,
-            // Skip 'name' field as it doesn't exist in Turso table yet
-            description: true,
-            totalCost: true,
-            currency: true,
-            costPerUnit: true,
-            isActive: true,
-            calculatedAt: true,
-            createdAt: true,
-            updatedAt: true,
-            template: {
-              select: {
-                id: true,
-                name: true,
-                country: true
-              }
-            }
-          }
         } : false
+        // costVersions temporarily disabled - table schema needs to be fixed in Turso
+        // costVersions: includeCostVersions ? {...} : false
       },
       orderBy: { name: 'asc' }
     });

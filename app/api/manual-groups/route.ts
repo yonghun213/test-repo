@@ -20,25 +20,8 @@ export async function GET(request: NextRequest) {
         template: includeTemplate,
         manuals: includeManuals ? {
           include: {
-            ingredients: true,
-            costVersions: {
-              where: { isActive: true },
-              select: {
-                id: true,
-                manualId: true,
-                templateId: true,
-                // Skip 'name' field as it doesn't exist in Turso table yet
-                description: true,
-                totalCost: true,
-                currency: true,
-                costPerUnit: true,
-                isActive: true,
-                calculatedAt: true,
-                createdAt: true,
-                updatedAt: true,
-                template: true
-              }
-            }
+            ingredients: true
+            // costVersions temporarily disabled - table schema needs to be fixed in Turso
           },
           orderBy: { name: 'asc' }
         } : false
