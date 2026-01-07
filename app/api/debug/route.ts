@@ -56,6 +56,24 @@ export async function GET() {
       const count = await prisma.user.count();
       diagnostics.prismaConnection = 'SUCCESS';
       diagnostics.prismaUserCount = count;
+
+      // Test Store query (the failing query from dashboard)
+      try {
+        const stores = await prisma.store.findMany({
+          take: 2,
+          select: { id: true, tempName: true, createdAt: true }
+        });
+        diagnostics.storeQuery = 'SUCCESS';
+        diagnostics.storeCount = stores.length;
+        diagnostics.storeSample = stores.map((s: { id: string; tempName: string | null; createdAt: Date }) => ({
+          id: s.id,
+          tempName: s.tempName,
+          createdAt: s.createdAt?.toISOString?.() || String(s.createdAt)
+        }));
+      } catch (storeError: any) {
+        diagnostics.storeQuery = 'FAILED';
+        diagnostics.storeError = storeError.message;
+      }
     }
   } catch (e: any) {
     diagnostics.prismaConnection = 'FAILED';
