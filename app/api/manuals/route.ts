@@ -186,14 +186,24 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(createdManuals, { status: 201 });
   } catch (error: any) {
-    console.error('Error creating manual:', error);
+    console.error('=== Error creating manual ===');
+    console.error('Error object:', error);
+    console.error('Error message:', error?.message);
+    console.error('Error code:', error?.code);
+    console.error('Error stack:', error?.stack);
+    console.error('Error name:', error?.name);
+    
     const errorMessage = error?.message || 'Unknown error';
-    const errorDetails = error?.code ? `Error code: ${error.code}` : '';
+    const errorCode = error?.code || error?.name || 'UNKNOWN';
+    const errorStack = error?.stack?.split('\n').slice(0, 3).join('\n') || '';
+    
     return NextResponse.json({ 
       error: 'Failed to create manual', 
       details: errorMessage,
-      code: error?.code,
-      hint: errorDetails || 'Please check console for more details'
+      code: errorCode,
+      stack: errorStack,
+      hint: `${errorCode}: ${errorMessage}`,
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
     }, { status: 500 });
   }
 }
