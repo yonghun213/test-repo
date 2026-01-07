@@ -2,51 +2,31 @@ import { PrismaClient } from '@prisma/client';
 
 declare global {
   var prisma: PrismaClient | undefined;
-  var prismaInitialized: boolean | undefined;
 }
 
 function createPrismaClient(): PrismaClient {
-  // Check if we're in production AND have Turso credentials
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Skip Turso during build time
+  const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
   const hasTursoCredentials = process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN;
   
-  if (isProduction && hasTursoCredentials) {
-    try {
-      // Dynamic require to avoid build-time issues
-      const { PrismaLibSql } = require('@prisma/adapter-libsql');
-      const { createClient } = require('@libsql/client');
-      
-      const libsql = createClient({
-        url: process.env.TURSO_DATABASE_URL,
-        authToken: process.env.TURSO_AUTH_TOKEN,
-      });
-      const adapter = new PrismaLibSql(libsql);
-      return new PrismaClient({ adapter } as any);
-    } catch (e) {
-      console.error('Failed to initialize Turso adapter:', e);
-      return new PrismaClient();
-    }
+  if (!isBuildTime && hasTursoCredentials) {
+    console.log('Initializing Prisma with Turso adapter...');
+    // Dynamic import to avoid build issues
+    const { PrismaLibSql } = require('@prisma/adapter-libsql');
+    const adapter = new PrismaLibSql({
+      url: process.env.TURSO_DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN!,
+    });
+    return new PrismaClient({ adapter } as any);
   }
   
-  // Development: Use local SQLite
+  // Local development or build time: Use SQLite
+  console.log('Initializing Prisma with local SQLite...');
   return new PrismaClient();
 }
 
-// Lazy initialization
-let _prisma: PrismaClient | undefined;
+export const prisma = global.prisma || createPrismaClient();
 
-export const prisma = new Proxy({} as PrismaClient, {
-  get(target, prop) {
-    if (!_prisma) {
-      if (process.env.NODE_ENV !== 'production' && global.prisma) {
-        _prisma = global.prisma;
-      } else {
-        _prisma = createPrismaClient();
-        if (process.env.NODE_ENV !== 'production') {
-          global.prisma = _prisma;
-        }
-      }
-    }
-    return (_prisma as any)[prop];
-  }
-});
+if (process.env.NODE_ENV !== 'production') {
+  global.prisma = prisma;
+}
