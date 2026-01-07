@@ -16,37 +16,38 @@ const STATUS_COLORS: Record<string, string> = {
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
 
-  const [storeCount, userCount, activeTaskCount, storesByCountry, storesByStatus] = await Promise.all([
-    prisma.store.count(),
-    prisma.user.count(),
-    prisma.task.count({
-      where: {
-        status: {
-          in: ['NOT_STARTED', 'IN_PROGRESS'],
+  try {
+    const [storeCount, userCount, activeTaskCount, storesByCountry, storesByStatus] = await Promise.all([
+      prisma.store.count(),
+      prisma.user.count(),
+      prisma.task.count({
+        where: {
+          status: {
+            in: ['NOT_STARTED', 'IN_PROGRESS'],
+          },
+        },
+      }),
+      prisma.store.groupBy({
+        by: ['country'],
+        _count: { id: true },
+        orderBy: { _count: { id: 'desc' } },
+      }),
+      prisma.store.groupBy({
+        by: ['status'],
+        _count: { id: true },
+      }),
+    ]);
+
+    const recentStores = await prisma.store.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        plannedOpenDates: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
         },
       },
-    }),
-    prisma.store.groupBy({
-      by: ['country'],
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-    }),
-    prisma.store.groupBy({
-      by: ['status'],
-      _count: { id: true },
-    }),
-  ]);
-
-  const recentStores = await prisma.store.findMany({
-    take: 5,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      plannedOpenDates: {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
-      },
-    },
-  });
+    });
 
   return (
     <div className="space-y-8">
@@ -199,4 +200,18 @@ export default async function DashboardPage() {
       />
     </div>
   );
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold text-red-600">Dashboard Error</h1>
+        <p className="mt-4 text-gray-600">
+          {error instanceof Error ? error.message : 'Unknown error occurred'}
+        </p>
+        <pre className="mt-4 p-4 bg-gray-100 rounded text-sm overflow-auto">
+          {JSON.stringify(error, null, 2)}
+        </pre>
+      </div>
+    );
+  }
 }
