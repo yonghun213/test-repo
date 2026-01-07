@@ -52,14 +52,14 @@ export async function GET(request: NextRequest) {
   const templateType = searchParams.get('type') || 'all-in-one';
   const format = searchParams.get('format') || 'csv';
 
-  if (!TEMPLATE_CONFIG[templateType]) {
+  if (!TEMPLATE_CONFIG[templateType as keyof typeof TEMPLATE_CONFIG]) {
     return NextResponse.json(
       { error: 'Invalid template type', availableTypes: Object.keys(TEMPLATE_CONFIG) },
       { status: 400 }
     );
   }
 
-  const config = TEMPLATE_CONFIG[templateType];
+  const config = TEMPLATE_CONFIG[templateType as keyof typeof TEMPLATE_CONFIG];
 
   if (format === 'xlsx') {
     // For Excel format, we'll create a proper XLSX file
