@@ -4,6 +4,59 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
+// Timezone data by country
+const TIMEZONES_BY_COUNTRY: Record<string, Array<{ value: string; label: string; utc: string }>> = {
+  CA: [
+    { value: 'America/Vancouver', label: 'Vancouver – Pacific Standard', utc: 'UTC-8' },
+    { value: 'America/Edmonton', label: 'Calgary – Mountain Standard', utc: 'UTC-7' },
+    { value: 'America/Winnipeg', label: 'Winnipeg – Central Standard', utc: 'UTC-6' },
+    { value: 'America/Toronto', label: 'Toronto – Eastern Standard', utc: 'UTC-5' },
+    { value: 'America/Halifax', label: 'Halifax – Atlantic Standard', utc: 'UTC-4' },
+    { value: 'America/St_Johns', label: 'St. Johns – Newfoundland', utc: 'UTC-3:30' },
+  ],
+  MX: [
+    { value: 'America/Tijuana', label: 'Tijuana – Pacific', utc: 'UTC-8' },
+    { value: 'America/Hermosillo', label: 'Hermosillo – Mountain', utc: 'UTC-7' },
+    { value: 'America/Chihuahua', label: 'Chihuahua – Mountain', utc: 'UTC-6' },
+    { value: 'America/Mexico_City', label: 'Mexico City – Central', utc: 'UTC-6' },
+    { value: 'America/Cancun', label: 'Cancun – Eastern', utc: 'UTC-5' },
+  ],
+  CO: [
+    { value: 'America/Bogota', label: 'Bogotá – Colombia', utc: 'UTC-5' },
+  ],
+  PE: [
+    { value: 'America/Lima', label: 'Lima – Peru', utc: 'UTC-5' },
+  ],
+  CL: [
+    { value: 'America/Santiago', label: 'Santiago – Chile', utc: 'UTC-4/-3' },
+    { value: 'Pacific/Easter', label: 'Easter Island', utc: 'UTC-6/-5' },
+  ],
+  AR: [
+    { value: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires', utc: 'UTC-3' },
+    { value: 'America/Argentina/Cordoba', label: 'Córdoba', utc: 'UTC-3' },
+    { value: 'America/Argentina/Mendoza', label: 'Mendoza', utc: 'UTC-3' },
+  ],
+  BR: [
+    { value: 'America/Noronha', label: 'Fernando de Noronha', utc: 'UTC-2' },
+    { value: 'America/Sao_Paulo', label: 'São Paulo – Brasília', utc: 'UTC-3' },
+    { value: 'America/Manaus', label: 'Manaus – Amazon', utc: 'UTC-4' },
+    { value: 'America/Rio_Branco', label: 'Rio Branco – Acre', utc: 'UTC-5' },
+  ],
+  EC: [
+    { value: 'America/Guayaquil', label: 'Guayaquil – Ecuador', utc: 'UTC-5' },
+    { value: 'Pacific/Galapagos', label: 'Galápagos', utc: 'UTC-6' },
+  ],
+  GT: [
+    { value: 'America/Guatemala', label: 'Guatemala City', utc: 'UTC-6' },
+  ],
+  PA: [
+    { value: 'America/Panama', label: 'Panama City', utc: 'UTC-5' },
+  ],
+  CR: [
+    { value: 'America/Costa_Rica', label: 'San José', utc: 'UTC-6' },
+  ],
+};
+
 interface Country {
   id: string;
   code: string;
@@ -43,8 +96,21 @@ export default function StoreForm({ countries, userId, store }: Props) {
   const [selectedCountry, setSelectedCountry] = useState(
     store?.country || countries[0]?.code || ''
   );
+  const [selectedTimezone, setSelectedTimezone] = useState(
+    store?.timezone || TIMEZONES_BY_COUNTRY[store?.country || 'CA']?.[0]?.value || 'America/Toronto'
+  );
 
   const selectedCountryData = countries.find((c) => c.code === selectedCountry);
+  const availableTimezones = TIMEZONES_BY_COUNTRY[selectedCountry] || [];
+
+  const handleCountryChange = (countryCode: string) => {
+    setSelectedCountry(countryCode);
+    // Auto-select first timezone for the new country
+    const newTimezones = TIMEZONES_BY_COUNTRY[countryCode] || [];
+    if (newTimezones.length > 0) {
+      setSelectedTimezone(newTimezones[0].value);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -130,7 +196,7 @@ export default function StoreForm({ countries, userId, store }: Props) {
               <select
                 name="country"
                 value={selectedCountry}
-                onChange={(e) => setSelectedCountry(e.target.value)}
+                onChange={(e) => handleCountryChange(e.target.value)}
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               >
@@ -146,14 +212,30 @@ export default function StoreForm({ countries, userId, store }: Props) {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Timezone *
               </label>
-              <input
-                type="text"
-                name="timezone"
-                value={selectedCountryData?.timezone || ''}
-                readOnly
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-              />
+              {availableTimezones.length > 0 ? (
+                <select
+                  name="timezone"
+                  value={selectedTimezone}
+                  onChange={(e) => setSelectedTimezone(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  {availableTimezones.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label} ({tz.utc})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  name="timezone"
+                  value={selectedCountryData?.timezone || ''}
+                  readOnly
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                />
+              )}
             </div>
 
             <div>
