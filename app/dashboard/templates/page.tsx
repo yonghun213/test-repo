@@ -192,8 +192,18 @@ export default function TemplatesPage() {
         console.log('✅ Manuals loaded:', manuals.length, manuals);
         setSavedManuals(manuals);
       } else {
-        const errorData = await manualsRes.json().catch(() => ({}));
-        console.error('❌ Failed to load manuals:', manualsRes.status, errorData);
+        let errorText = '';
+        try {
+          const errorData = await manualsRes.json();
+          errorText = JSON.stringify(errorData, null, 2);
+          console.error('❌ Failed to load manuals:', manualsRes.status);
+          console.error('Error details:', errorText);
+          console.error('Parsed error:', errorData);
+        } catch {
+          errorText = await manualsRes.text();
+          console.error('❌ Failed to load manuals:', manualsRes.status);
+          console.error('Raw error:', errorText);
+        }
       }
       
       if (templatesRes.ok) {
