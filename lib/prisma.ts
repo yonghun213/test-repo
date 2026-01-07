@@ -11,13 +11,22 @@ function createPrismaClient(): PrismaClient {
   
   if (!isBuildTime && hasTursoCredentials) {
     console.log('Initializing Prisma with Turso adapter...');
-    // Dynamic import to avoid build issues
-    const { PrismaLibSql } = require('@prisma/adapter-libsql');
-    const adapter = new PrismaLibSql({
-      url: process.env.TURSO_DATABASE_URL!,
-      authToken: process.env.TURSO_AUTH_TOKEN!,
-    });
-    return new PrismaClient({ adapter } as any);
+    try {
+      // Create libsql client first, then pass to adapter
+      const { createClient } = require('@libsql/client');
+      const { PrismaLibSql } = require('@prisma/adapter-libsql');
+      
+      const libsql = createClient({
+        url: process.env.TURSO_DATABASE_URL!,
+        authToken: process.env.TURSO_AUTH_TOKEN!,
+      });
+      
+      const adapter = new PrismaLibSql(libsql);
+      return new PrismaClient({ adapter } as any);
+    } catch (e) {
+      console.error('Failed to create Turso adapter:', e);
+      throw e; // Don't fallback to SQLite - it won't work on Vercel
+    }
   }
   
   // Local development or build time: Use SQLite
