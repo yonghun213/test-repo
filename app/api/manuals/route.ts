@@ -48,12 +48,20 @@ export async function GET(request: NextRequest) {
     });
 
     console.log(`✅ Found ${manuals.length} manuals`);
-    console.log('Manuals:', manuals.map(m => ({ id: m.id, name: m.name, groupId: m.groupId })));
+    if (manuals.length > 0) {
+      console.log('First manual:', JSON.stringify(manuals[0], null, 2));
+    }
 
     return NextResponse.json(manuals);
-  } catch (error) {
-    console.error('Error fetching manuals:', error);
-    return NextResponse.json({ error: 'Failed to fetch manuals' }, { status: 500 });
+  } catch (error: any) {
+    console.error('❌ Error fetching manuals:', error);
+    console.error('Error message:', error?.message);
+    console.error('Error stack:', error?.stack);
+    return NextResponse.json({ 
+      error: 'Failed to fetch manuals',
+      details: error?.message,
+      stack: error?.stack?.split('\n').slice(0, 5).join('\n')
+    }, { status: 500 });
   }
 }
 
