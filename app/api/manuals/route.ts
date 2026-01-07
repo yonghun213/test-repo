@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
   const groupId = searchParams.get('groupId');
 
   try {
+    console.log('🔍 Fetching manuals...');
+    console.log('Query params:', { groupId, includeIngredients, includeCostVersions });
+    
     const manuals = await prisma.menuManual.findMany({
       where: groupId ? { groupId } : undefined,
       include: {
@@ -43,6 +46,9 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { name: 'asc' }
     });
+
+    console.log(`✅ Found ${manuals.length} manuals`);
+    console.log('Manuals:', manuals.map(m => ({ id: m.id, name: m.name, groupId: m.groupId })));
 
     return NextResponse.json(manuals);
   } catch (error) {

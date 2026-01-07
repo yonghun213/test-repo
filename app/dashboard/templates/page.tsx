@@ -164,6 +164,7 @@ export default function TemplatesPage() {
 
   const fetchData = async () => {
     setIsLoading(true);
+    console.log('📡 Fetching data...');
     try {
       const [groupsRes, manualsRes, templatesRes] = await Promise.all([
         fetch('/api/manual-groups?includeManuals=true&includeTemplate=true'),
@@ -171,9 +172,29 @@ export default function TemplatesPage() {
         fetch('/api/ingredient-templates')
       ]);
 
-      if (groupsRes.ok) setManualGroups(await groupsRes.json());
-      if (manualsRes.ok) setSavedManuals(await manualsRes.json());
-      if (templatesRes.ok) setPriceTemplates(await templatesRes.json());
+      console.log('Response statuses:', {
+        groups: groupsRes.status,
+        manuals: manualsRes.status,
+        templates: templatesRes.status
+      });
+
+      if (groupsRes.ok) {
+        const groups = await groupsRes.json();
+        console.log('✅ Groups loaded:', groups.length);
+        setManualGroups(groups);
+      }
+      if (manualsRes.ok) {
+        const manuals = await manualsRes.json();
+        console.log('✅ Manuals loaded:', manuals.length, manuals);
+        setSavedManuals(manuals);
+      } else {
+        console.error('❌ Failed to load manuals:', manualsRes.status);
+      }
+      if (templatesRes.ok) {
+        const templates = await templatesRes.json();
+        console.log('✅ Templates loaded:', templates.length);
+        setPriceTemplates(templates);
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
