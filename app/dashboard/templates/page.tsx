@@ -182,18 +182,27 @@ export default function TemplatesPage() {
         const groups = await groupsRes.json();
         console.log('✅ Groups loaded:', groups.length);
         setManualGroups(groups);
+      } else {
+        const errorData = await groupsRes.json().catch(() => ({}));
+        console.error('❌ Failed to load groups:', groupsRes.status, errorData);
       }
+      
       if (manualsRes.ok) {
         const manuals = await manualsRes.json();
         console.log('✅ Manuals loaded:', manuals.length, manuals);
         setSavedManuals(manuals);
       } else {
-        console.error('❌ Failed to load manuals:', manualsRes.status);
+        const errorData = await manualsRes.json().catch(() => ({}));
+        console.error('❌ Failed to load manuals:', manualsRes.status, errorData);
       }
+      
       if (templatesRes.ok) {
         const templates = await templatesRes.json();
         console.log('✅ Templates loaded:', templates.length);
         setPriceTemplates(templates);
+      } else {
+        const errorData = await templatesRes.json().catch(() => ({}));
+        console.error('❌ Failed to load templates:', templatesRes.status, errorData);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
