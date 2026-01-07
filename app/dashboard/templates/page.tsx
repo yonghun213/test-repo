@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FileText, Download, Plus, Trash2, Eye, Save, RefreshCw, Settings, Table, Search, X, Edit, ChevronDown, Upload, Image } from 'lucide-react';
+import { FileText, Download, Plus, Trash2, Eye, Save, RefreshCw, Settings, Table, Search, X, Edit, ChevronDown, Upload, Image, ChevronUp } from 'lucide-react';
 
 // 타입 정의
 interface IngredientSuggestion {
@@ -138,6 +138,10 @@ export default function TemplatesPage() {
   // Selection State for bulk operations
   const [selectedManualIds, setSelectedManualIds] = useState<Set<string>>(new Set());
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  
+  // Sorting state for manuals table
+  const [sortField, setSortField] = useState<'name' | 'country' | 'cost' | 'sellingPrice' | 'costPct' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // Editor template selection
   const [editorTemplateId, setEditorTemplateId] = useState<string>('');
@@ -770,12 +774,74 @@ export default function TemplatesPage() {
       });
     }
     
+    // Apply sorting
+    if (sortField) {
+      filtered = [...filtered].sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+        
+        switch (sortField) {
+          case 'name':
+            aValue = a.name?.toLowerCase() || '';
+            bValue = b.name?.toLowerCase() || '';
+            break;
+          case 'country':
+            aValue = getAppliedTemplate(a)?.country || '';
+            bValue = getAppliedTemplate(b)?.country || '';
+            break;
+          case 'cost':
+            aValue = getManualCost(a)?.totalCost || 0;
+            bValue = getManualCost(b)?.totalCost || 0;
+            break;
+          case 'sellingPrice':
+            aValue = a.sellingPrice || 0;
+            bValue = b.sellingPrice || 0;
+            break;
+          case 'costPct':
+            const aPct = getCostPercentage(a);
+            const bPct = getCostPercentage(b);
+            aValue = aPct ? parseFloat(aPct) : 0;
+            bValue = bPct ? parseFloat(bPct) : 0;
+            break;
+          default:
+            return 0;
+        }
+        
+        // Compare
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortDirection === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+        
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      });
+    }
+    
     return filtered;
   };
 
   // Get manuals for selected group (legacy, now uses getFilteredManuals)
   const getGroupManuals = () => {
     return getFilteredManuals();
+  };
+  
+  // Handle column header click for sorting
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+  
+  // Render sort icon
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' 
+      ? <ChevronUp className="w-4 h-4 inline ml-1" />
+      : <ChevronDown className="w-4 h-4 inline ml-1" />;
   };
 
   return (
@@ -1297,11 +1363,21 @@ export default function TemplatesPage() {
                       className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">메뉴명</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">적용 국가</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">원가</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">판매가</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">원가율</th>
+                  <th onClick={() => handleSort('name')} className="px-4 py-3 text-left text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100">
+                    메뉴명 <SortIcon field="name" />
+                  </th>
+                  <th onClick={() => handleSort('country')} className="px-4 py-3 text-center text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100">
+                    적용 국가 <SortIcon field="country" />
+                  </th>
+                  <th onClick={() => handleSort('cost')} className="px-4 py-3 text-right text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100">
+                    원가 <SortIcon field="cost" />
+                  </th>
+                  <th onClick={() => handleSort('sellingPrice')} className="px-4 py-3 text-right text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100">
+                    판매가 <SortIcon field="sellingPrice" />
+                  </th>
+                  <th onClick={() => handleSort('costPct')} className="px-4 py-3 text-right text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100">
+                    원가율 <SortIcon field="costPct" />
+                  </th>
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Actions</th>
                 </tr>
               </thead>

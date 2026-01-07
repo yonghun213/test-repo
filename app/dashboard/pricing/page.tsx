@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 const PriceHistoryViewer = dynamic(() => import('@/components/PriceHistoryViewer'), { ssr: false });
 const ExcelTemplateDownloader = dynamic(() => import('@/components/ExcelTemplateDownloader'), { ssr: false });
@@ -80,6 +81,10 @@ export default function PricingPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   
+  // Sorting state
+  const [sortField, setSortField] = useState<keyof TemplateItem | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [showAddIngredient, setShowAddIngredient] = useState(false);
   
@@ -147,7 +152,9 @@ export default function PricingPage() {
 
   const filteredItems = useMemo(() => {
     if (!selectedTemplate?.items) return [];
-    return selectedTemplate.items.filter(item => {
+    
+    // First filter
+    let items = selectedTemplate.items.filter(item => {
       const effectiveCategory = item.category || item.ingredient.category;
       const effectiveKoreanName = item.koreanName || item.ingredient.koreanName;
       const effectiveEnglishName = item.englishName || item.ingredient.englishName;
@@ -157,7 +164,34 @@ export default function PricingPage() {
         effectiveEnglishName.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [selectedTemplate?.items, categoryFilter, searchTerm]);
+    
+    // Then sort
+    if (sortField) {
+      items = [...items].sort((a, b) => {
+        let aValue = a[sortField] ?? (a.ingredient as any)[sortField];
+        let bValue = b[sortField] ?? (b.ingredient as any)[sortField];
+        
+        // Handle null/undefined
+        if (aValue === null || aValue === undefined) aValue = '';
+        if (bValue === null || bValue === undefined) bValue = '';
+        
+        // Compare
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortDirection === 'asc' 
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+        
+        return 0;
+      });
+    }
+    
+    return items;
+  }, [selectedTemplate?.items, categoryFilter, searchTerm, sortField, sortDirection]);
 
   const getEffectiveValue = (item: TemplateItem, field: keyof TemplateItem) => {
     const edited = editedItems.get(item.id);
@@ -341,6 +375,26 @@ export default function PricingPage() {
     });
     return counts;
   }, [selectedTemplate?.items]);
+  
+  // Handle column header click for sorting
+  const handleSort = (field: keyof TemplateItem) => {
+    if (sortField === field) {
+      // Toggle direction
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+  
+  // Render sort icon
+  const SortIcon = ({ field }: { field: keyof TemplateItem }) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' 
+      ? <ChevronUp className="w-4 h-4 inline ml-1" />
+      : <ChevronDown className="w-4 h-4 inline ml-1" />;
+  };
 
   if (loading || status === 'loading') {
     return (
@@ -495,14 +549,30 @@ export default function PricingPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">카테고리</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">한글명</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">영문명</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">수량</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">단위</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">수율(%)</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">금액</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">화폐</th>
+                <th onClick={() => handleSort('category')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 cursor-pointer hover:bg-gray-100">
+                  카테고리 <SortIcon field="category" />
+                </th>
+                <th onClick={() => handleSort('koreanName')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  한글명 <SortIcon field="koreanName" />
+                </th>
+                <th onClick={() => handleSort('englishName')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  영문명 <SortIcon field="englishName" />
+                </th>
+                <th onClick={() => handleSort('quantity')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 cursor-pointer hover:bg-gray-100">
+                  수량 <SortIcon field="quantity" />
+                </th>
+                <th onClick={() => handleSort('unit')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20 cursor-pointer hover:bg-gray-100">
+                  단위 <SortIcon field="unit" />
+                </th>
+                <th onClick={() => handleSort('yieldRate')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20 cursor-pointer hover:bg-gray-100">
+                  수율(%) <SortIcon field="yieldRate" />
+                </th>
+                <th onClick={() => handleSort('price')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28 cursor-pointer hover:bg-gray-100">
+                  금액 <SortIcon field="price" />
+                </th>
+                <th onClick={() => handleSort('currency')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20 cursor-pointer hover:bg-gray-100">
+                  화폐 <SortIcon field="currency" />
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">

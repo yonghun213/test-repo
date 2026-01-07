@@ -328,172 +328,208 @@ export default function StoreDetailTabs({
 
             {/* Right Side - Interactive Quick Stats with Detail Panel */}
             <div className="space-y-4">
-              {/* Quick Stats - Clickable */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-3 gap-3">
-                  <button
-                    onClick={() => setSelectedQuickStat(selectedQuickStat === 'tasks' ? null : 'tasks')}
-                    className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
-                      selectedQuickStat === 'tasks'
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200 hover:border-orange-300'
-                    }`}
-                  >
-                    <CheckSquare className={`w-6 h-6 mx-auto mb-2 ${
-                      selectedQuickStat === 'tasks' ? 'text-orange-600' : 'text-gray-600'
-                    }`} />
-                    <div className="text-2xl font-bold text-gray-900">{tasks.length}</div>
-                    <div className="text-xs text-gray-500 mt-1">Tasks</div>
-                  </button>
-                  
-                  <button
-                    onClick={() => setSelectedQuickStat(selectedQuickStat === 'files' ? null : 'files')}
-                    className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
-                      selectedQuickStat === 'files'
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300'
-                    }`}
-                  >
-                    <FileText className={`w-6 h-6 mx-auto mb-2 ${
-                      selectedQuickStat === 'files' ? 'text-blue-600' : 'text-gray-600'
-                    }`} />
-                    <div className="text-2xl font-bold text-gray-900">{store.files.length}</div>
-                    <div className="text-xs text-gray-500 mt-1">Files</div>
-                  </button>
-                  
-                  <button
-                    onClick={() => setSelectedQuickStat(selectedQuickStat === 'milestones' ? null : 'milestones')}
-                    className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
-                      selectedQuickStat === 'milestones'
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-green-300'
-                    }`}
-                  >
-                    <Flag className={`w-6 h-6 mx-auto mb-2 ${
-                      selectedQuickStat === 'milestones' ? 'text-green-600' : 'text-gray-600'
-                    }`} />
-                    <div className="text-2xl font-bold text-gray-900">{store.milestones.length}</div>
-                    <div className="text-xs text-gray-500 mt-1">Milestones</div>
-                  </button>
+              {/* Recent Tasks Panel - Blue Background with White Cards */}
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <CheckSquare className="w-5 h-5 text-white" />
+                  <h3 className="text-lg font-semibold text-white">Recent Tasks ({tasks.length > 0 ? Math.min(tasks.length, 5) : 0})</h3>
                 </div>
-              </div>
-
-              {/* Detail Panel - Blue Box */}
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 min-h-[320px]">
-                {selectedQuickStat === null ? (
-                  <div className="flex items-center justify-center h-full text-white text-center">
-                    <div>
-                      <div className="text-2xl font-bold mb-2">간이 리스트 목록</div>
-                      <p className="text-blue-100 text-sm">
-                        Click Tasks, Files, or Milestones above to view details
-                      </p>
+                
+                <div className="space-y-3 max-h-[480px] overflow-y-auto pr-2 custom-scrollbar">
+                  {tasks.length === 0 ? (
+                    <div className="text-center py-12 text-white/80">
+                      <CheckSquare className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                      <p className="text-sm mb-4">No tasks yet</p>
+                      <button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Create First Task
+                      </button>
                     </div>
-                  </div>
-                ) : selectedQuickStat === 'tasks' ? (
-                  <div className="text-white">
-                    <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                      <CheckSquare className="w-5 h-5" />
-                      Recent Tasks ({tasks.slice(0, 5).length})
-                    </h4>
-                    <div className="space-y-2 max-h-[260px] overflow-y-auto">
-                      {tasks.slice(0, 5).map((task) => (
-                        <button
-                          key={task.id}
-                          onClick={() => {
-                            setSelectedTask(task);
-                            setIsEditModalOpen(true);
-                          }}
-                          className="w-full text-left p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors backdrop-blur-sm"
-                        >
-                          <div className="font-medium text-sm">{task.title}</div>
-                          <div className="text-xs text-blue-100 mt-1">
-                            Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
-                          </div>
-                          <div className="flex gap-2 mt-1">
-                            <span className="text-xs px-2 py-0.5 bg-white/20 rounded">{task.status}</span>
-                            {task.phase && (
-                              <span className="text-xs px-2 py-0.5 bg-white/20 rounded">{task.phase}</span>
+                  ) : (
+                    tasks.slice(0, 5).map((task) => (
+                      <button
+                        key={task.id}
+                        onClick={() => {
+                          setSelectedTask(task);
+                          setIsEditModalOpen(true);
+                        }}
+                        className="w-full text-left bg-white rounded-lg p-4 hover:shadow-lg transition-all border-l-4 border-orange-400 group"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-gray-900 mb-1 group-hover:text-orange-600 transition-colors">
+                              {task.title}
+                            </div>
+                            {task.dueDate && (
+                              <div className="text-xs text-gray-500 flex items-center gap-1">
+                                <span>Due:</span>
+                                <span className="font-medium">
+                                  {new Date(task.dueDate).toLocaleDateString('en-US', { 
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit'
+                                  })}
+                                </span>
+                              </div>
                             )}
                           </div>
-                        </button>
-                      ))}
-                      {tasks.length === 0 && (
-                        <div className="text-center py-8 text-blue-100">No tasks available</div>
-                      )}
-                    </div>
-                  </div>
-                ) : selectedQuickStat === 'files' ? (
-                  <div className="text-white">
-                    <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      Recent Files ({store.files.slice(0, 5).length})
-                    </h4>
-                    <div className="space-y-2 max-h-[260px] overflow-y-auto">
-                      {store.files.slice(0, 5).map((file: any) => (
-                        <div
-                          key={file.id}
-                          className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors backdrop-blur-sm"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm truncate">{file.fileName}</div>
-                              <div className="text-xs text-blue-100 mt-1">
-                                {(file.fileSize / 1024).toFixed(1)} KB · {new Date(file.createdAt).toLocaleDateString()}
-                              </div>
-                            </div>
-                            <div className="flex gap-1 ml-2">
-                              <button
-                                onClick={() => window.open(file.filePath, '_blank')}
-                                className="p-1.5 hover:bg-white/20 rounded"
-                                title="Preview"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <a
-                                href={file.filePath}
-                                download={file.fileName}
-                                className="p-1.5 hover:bg-white/20 rounded"
-                                title="Download"
-                              >
-                                <Download className="w-4 h-4" />
-                              </a>
-                            </div>
+                          <div className="flex flex-col items-end gap-1.5">
+                            <span
+                              className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
+                                task.status === 'COMPLETED'
+                                  ? 'bg-green-100 text-green-700'
+                                  : task.status === 'IN_PROGRESS'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {task.status === 'NOT_STARTED' ? 'NOT STARTED' : task.status.replace(/_/g, ' ')}
+                            </span>
+                            {task.phase && (
+                              <span className="text-xs bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full font-medium">
+                                {task.phase.replace(/_/g, ' ')}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      ))}
-                      {store.files.length === 0 && (
-                        <div className="text-center py-8 text-blue-100">No files uploaded</div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-white">
-                    <h4 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                      <Flag className="w-5 h-5" />
-                      Milestones ({store.milestones.length})
-                    </h4>
-                    <div className="space-y-2 max-h-[260px] overflow-y-auto">
-                      {store.milestones.map((milestone: any) => (
-                        <div
-                          key={milestone.id}
-                          className="p-3 bg-white/10 rounded-lg backdrop-blur-sm"
-                        >
-                          <div className="font-medium text-sm">{milestone.type.replace(/_/g, ' ')}</div>
-                          <div className="text-xs text-blue-100 mt-1">
-                            📅 {new Date(milestone.date).toLocaleDateString()}
-                          </div>
-                        </div>
-                      ))}
-                      {store.milestones.length === 0 && (
-                        <div className="text-center py-8 text-blue-100">No milestones set</div>
-                      )}
-                    </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+                
+                {tasks.length > 5 && (
+                  <div className="mt-4 pt-4 border-t border-white/20 text-center">
+                    <p className="text-white/80 text-sm">
+                      +{tasks.length - 5} more tasks
+                    </p>
                   </div>
                 )}
               </div>
             </div>
           </div>
+
+          {/* Quick Stats Row - Below Main Cards */}
+          <div className="grid grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg shadow p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="flex justify-center mb-3">
+                <div className="p-3 bg-orange-100 rounded-full">
+                  <CheckSquare className="w-6 h-6 text-orange-600" />
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">{tasks.length}</div>
+              <div className="text-sm text-gray-500 font-medium">Total Tasks</div>
+              <div className="mt-2 text-xs text-gray-400">
+                {tasks.filter(t => t.status === 'COMPLETED').length} completed
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="flex justify-center mb-3">
+                <div className="p-3 bg-blue-100 rounded-full">
+                  <FileText className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">{store.files.length}</div>
+              <div className="text-sm text-gray-500 font-medium">Files Uploaded</div>
+              <div className="mt-2 text-xs text-gray-400">
+                {(store.files.reduce((sum: number, f: any) => sum + (f.fileSize || 0), 0) / 1024 / 1024).toFixed(1)} MB total
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-6 text-center hover:shadow-lg transition-shadow">
+              <div className="flex justify-center mb-3">
+                <div className="p-3 bg-green-100 rounded-full">
+                  <Flag className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">{store.milestones.length}</div>
+              <div className="text-sm text-gray-500 font-medium">Milestones</div>
+              <div className="mt-2 text-xs text-gray-400">
+                {store.milestones.filter((m: any) => new Date(m.date) < new Date()).length} passed
+              </div>
+            </div>
+          </div>
+
+          {/* Files & Milestones Section */}
+          {(store.files.length > 0 || store.milestones.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recent Files */}
+              {store.files.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h4 className="font-semibold text-lg mb-4 flex items-center gap-2 text-gray-900">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    Recent Files
+                  </h4>
+                  <div className="space-y-2">
+                    {store.files.slice(0, 3).map((file: any) => (
+                      <div
+                        key={file.id}
+                        className="p-3 border border-gray-200 hover:border-blue-300 rounded-lg transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm text-gray-900 truncate">{file.fileName}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {(file.fileSize / 1024).toFixed(1)} KB · {new Date(file.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="flex gap-1 ml-2">
+                            <button
+                              onClick={() => window.open(file.filePath, '_blank')}
+                              className="p-1.5 hover:bg-gray-100 rounded text-gray-600 hover:text-blue-600 transition-colors"
+                              title="Preview"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <a
+                              href={file.filePath}
+                              download={file.fileName}
+                              className="p-1.5 hover:bg-gray-100 rounded text-gray-600 hover:text-green-600 transition-colors"
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Upcoming Milestones */}
+              {store.milestones.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h4 className="font-semibold text-lg mb-4 flex items-center gap-2 text-gray-900">
+                    <Flag className="w-5 h-5 text-green-600" />
+                    Upcoming Milestones
+                  </h4>
+                  <div className="space-y-2">
+                    {store.milestones.slice(0, 3).map((milestone: any) => (
+                      <div
+                        key={milestone.id}
+                        className="p-3 border border-gray-200 hover:border-green-300 rounded-lg transition-colors"
+                      >
+                        <div className="font-medium text-sm text-gray-900">{milestone.type.replace(/_/g, ' ')}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          📅 {new Date(milestone.date).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Hidden compatibility wrapper for old code */}
+          <div className="hidden"></div>
 
           {/* Bottom - Calendar/Gantt View */}
           <div className="bg-white rounded-lg shadow p-4">
