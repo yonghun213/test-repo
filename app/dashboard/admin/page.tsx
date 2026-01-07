@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
+import AdminAuditSection from '@/components/AdminAuditSection';
 
 // 중남미 및 북미 타임존 목록
 const TIMEZONES = [
@@ -425,6 +426,9 @@ export default async function AdminPage() {
           </code>
         </div>
       </section>
+
+      {/* Audit Logs Section */}
+      <AdminAuditSection />
     </div>
   );
 }

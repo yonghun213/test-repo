@@ -22,6 +22,7 @@ model User {
   updatedAt     DateTime       @updatedAt
   assignedTasks Task[]         @relation("TaskAssignee")
   notifications Notification[]
+  taskComments  TaskComment[]
 }
 
 // 국가 & 설정
@@ -145,6 +146,32 @@ model Task {
   assignee       User?            @relation("TaskAssignee", fields: [assigneeId], references: [id])
   dependencies   TaskDependency[] @relation("DependentTask")
   dependents     TaskDependency[] @relation("DependencyTask")
+  comments       TaskComment[]
+  checklist      TaskChecklistItem[]
+}
+
+// 태스크 코멘트
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// 태스크 체크리스트
+model TaskChecklistItem {
+  id          String   @id @default(cuid())
+  taskId      String
+  content     String
+  isCompleted Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model TaskDependency {

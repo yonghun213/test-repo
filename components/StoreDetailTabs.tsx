@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import StoreForm from './StoreForm';
 import CalendarView from './CalendarView';
+import GanttChart from './GanttChart';
+import OpeningReadiness from './OpeningReadiness';
 import TaskEditModal from './TaskEditModal';
 import TaskCreateModal from './TaskCreateModal';
+import { Calendar, BarChart3, Target } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -29,7 +32,8 @@ export default function StoreDetailTabs({
   userId,
   userRole,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'edit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'readiness' | 'edit'>('overview');
+  const [viewMode, setViewMode] = useState<'calendar' | 'gantt'>('calendar');
   const [tasks, setTasks] = useState<Task[]>(store.tasks || []);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -111,6 +115,17 @@ export default function StoreDetailTabs({
             }`}
           >
             Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('readiness')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-1.5 ${
+              activeTab === 'readiness'
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Target className="w-4 h-4" />
+            Readiness
           </button>
           {canEdit && (
             <button
@@ -281,23 +296,66 @@ export default function StoreDetailTabs({
             </div>
           </div>
 
-          {/* Bottom - Calendar with Task Management */}
+          {/* Bottom - Calendar/Gantt with Task Management */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Task Calendar</h3>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium text-sm"
-              >
-                + Add Task
-              </button>
+              <h3 className="text-lg font-semibold text-gray-900">Tasks</h3>
+              <div className="flex items-center gap-3">
+                {/* View Toggle */}
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('calendar')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'calendar'
+                        ? 'bg-white text-orange-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Calendar
+                  </button>
+                  <button
+                    onClick={() => setViewMode('gantt')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'gantt'
+                        ? 'bg-white text-orange-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    Gantt
+                  </button>
+                </div>
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium text-sm"
+                >
+                  + Add Task
+                </button>
+              </div>
             </div>
-            <CalendarView
-              tasks={tasks}
-              onEventDrop={handleEventDrop}
-              onEventClick={handleEventClick}
-            />
+            
+            {viewMode === 'calendar' ? (
+              <CalendarView
+                tasks={tasks}
+                onEventDrop={handleEventDrop}
+                onEventClick={handleEventClick}
+              />
+            ) : (
+              <GanttChart
+                tasks={tasks as any}
+                onTaskClick={(task) => handleEventClick(task as any)}
+              />
+            )}
           </div>
+        </div>
+      ) : activeTab === 'readiness' ? (
+        <div className="space-y-6">
+          <OpeningReadiness
+            tasks={tasks as any}
+            targetOpenDate={store.targetOpenDate}
+            storeName={store.officialName || store.tempName || 'Store'}
+          />
         </div>
       ) : (
         <div className="max-w-4xl">
