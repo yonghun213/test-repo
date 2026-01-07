@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 const PriceHistoryViewer = dynamic(() => import('@/components/PriceHistoryViewer'), { ssr: false });
+const ExcelTemplateDownloader = dynamic(() => import('@/components/ExcelTemplateDownloader'), { ssr: false });
+const ExcelPriceUploader = dynamic(() => import('@/components/ExcelPriceUploader'), { ssr: false });
 
 interface IngredientMaster {
   id: string;
@@ -67,7 +69,7 @@ const CURRENCIES = [
 export default function PricingPage() {
   const { data: session, status } = useSession();
   
-  const [activeView, setActiveView] = useState<'templates' | 'history'>('templates');
+  const [activeView, setActiveView] = useState<'templates' | 'history' | 'bulk-upload'>('templates');
   const [templates, setTemplates] = useState<IngredientTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<IngredientTemplate | null>(null);
@@ -393,11 +395,39 @@ export default function PricingPage() {
           >
             가격 히스토리
           </button>
+          <button
+            onClick={() => setActiveView('bulk-upload')}
+            className={`py-3 px-1 border-b-2 font-medium text-sm ${
+              activeView === 'bulk-upload'
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            대량 업로드
+          </button>
         </nav>
       </div>
 
       {activeView === 'history' ? (
         <PriceHistoryViewer />
+      ) : activeView === 'bulk-upload' ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">📥 템플릿 다운로드</h3>
+              <ExcelTemplateDownloader />
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">📤 파일 업로드</h3>
+              <ExcelPriceUploader 
+                templateId={selectedTemplateId || undefined}
+                onUploadComplete={(result) => {
+                  alert(`업로드 완료: ${result.success}건 성공, ${result.errors}건 실패`);
+                }}
+              />
+            </div>
+          </div>
+        </div>
       ) : (
         <>
       <div className="bg-white rounded-lg shadow-sm border p-4">
