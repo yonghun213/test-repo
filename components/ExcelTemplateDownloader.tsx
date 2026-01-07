@@ -65,12 +65,6 @@ const TEMPLATE_CONFIGS: TemplateConfig[] = [
     ]
   }
 ];
-      'Package Unit: g, kg, ml, L, ea, pcs',
-      'Tax Included: Yes or No',
-      'Source URL: Optional link to price source'
-    ]
-  }
-];
 
 interface ExcelTemplateDownloaderProps {
   onDownload?: (templateType: TemplateType) => void;
