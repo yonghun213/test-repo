@@ -26,14 +26,31 @@ export async function GET() {
   }
 
   try {
-    // Test Prisma
-    const { prisma } = require('@/lib/prisma');
+    // Test Prisma with detailed error
+    const { createClient } = require('@libsql/client');
+    const { PrismaLibSql } = require('@prisma/adapter-libsql');
+    const { PrismaClient } = require('@prisma/client');
+    
+    const libsql = createClient({
+      url: process.env.TURSO_DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN!,
+    });
+    
+    diagnostics.libsqlClient = 'CREATED';
+    
+    const adapter = new PrismaLibSql(libsql);
+    diagnostics.adapterCreated = 'SUCCESS';
+    
+    const prisma = new PrismaClient({ adapter } as any);
+    diagnostics.prismaClient = 'CREATED';
+    
     const count = await prisma.user.count();
     diagnostics.prismaConnection = 'SUCCESS';
     diagnostics.prismaUserCount = count;
   } catch (e: any) {
     diagnostics.prismaConnection = 'FAILED';
     diagnostics.prismaError = e.message;
+    diagnostics.prismaStack = e.stack?.split('\n').slice(0, 5);
   }
 
   return NextResponse.json(diagnostics, { status: 200 });
