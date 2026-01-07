@@ -137,6 +137,90 @@ function applyTerminologyMapping(text: string): string {
 }
 
 // ============================================
+// 1.5단계: 문법 규칙 적용 (조사 제거 + 어순 조정)
+// ============================================
+
+function applyGrammarRules(text: string): string {
+  let result = text;
+  
+  // 1. 한국어 조사 제거
+  const particles = [
+    '을를', '을', '를', '이가', '이', '가', '은는', '은', '는',
+    '에서', '에게', '에', '으로', '로', '와', '과', '의', '도',
+    '까지', '부터', '만', '마다', '조차', '밖에', '께서', '에게서',
+    '한테', '더러', '보고', '하고'
+  ];
+  
+  // 긴 조사부터 제거
+  particles.sort((a, b) => b.length - a.length);
+  for (const particle of particles) {
+    const regex = new RegExp(particle + '(?=\\s|$)', 'g');
+    result = result.replace(regex, '');
+  }
+  
+  // 2. 연속 공백 제거
+  result = result.replace(/\s+/g, ' ').trim();
+  
+  // 3. 영어 동사 찾기 (일반적인 조리 동작)
+  const commonVerbs = [
+    'add', 'put', 'mix', 'fry', 'bake', 'saute', 'boil', 'heat',
+    'cut', 'slice', 'chop', 'mince', 'julienne', 'pour', 'sprinkle',
+    'serve', 'store', 'marinate', 'garnish', 'place', 'prepare', 'thaw',
+    'cook', 'stir', 'dissolve', 'toss', 'brine', 'refrigerate', 'freeze'
+  ];
+  
+  // 4. 문장 재구성 (동사를 찾아서 앞으로)
+  const words = result.split(' ');
+  let verbIndex = -1;
+  let verb = '';
+  
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i].toLowerCase();
+    if (commonVerbs.includes(word)) {
+      verbIndex = i;
+      verb = words[i];
+      break;
+    }
+  }
+  
+  if (verbIndex > 0) {
+    // 동사를 문장 앞으로 이동
+    const beforeVerb = words.slice(0, verbIndex);
+    const afterVerb = words.slice(verbIndex + 1);
+    
+    // "동사 + 나머지" 형태로 재구성
+    result = [verb, ...beforeVerb, ...afterVerb].join(' ');
+  }
+  
+  // 5. 특수 패턴 정리
+  // "A B until C" -> "A B until C"는 그대로
+  // "until crispy fry" -> "fry until crispy"
+  result = result.replace(/until\s+(\w+)\s+(fry|bake|cook|heat)/gi, (match, adj, verb) => {
+    return `${verb} until ${adj}`;
+  });
+  
+  // "on medium heat fry" -> "fry on medium heat"
+  result = result.replace(/(on\s+\w+\s+heat)\s+(fry|bake|cook)/gi, (match, heatPhrase, verb) => {
+    return `${verb} ${heatPhrase}`;
+  });
+  
+  // 6. 대소문자 정리 (문장 첫 글자 대문자)
+  if (result.length > 0) {
+    result = result.charAt(0).toUpperCase() + result.slice(1);
+  }
+  
+  // 7. 불필요한 공백 다시 제거
+  result = result.replace(/\s+/g, ' ').trim();
+  
+  // 8. 마침표 추가 (없으면)
+  if (result && !result.match(/[.!?]$/)) {
+    result += '.';
+  }
+  
+  return result;
+}
+
+// ============================================
 // 2단계: MyMemory API로 다듬기
 // ============================================
 
@@ -164,70 +248,19 @@ export async function POST(request: NextRequest) {
     const step1Result = applyTerminologyMapping(text);
     console.log('Step 1 (Terminology mapping):', step1Result);
     
-    // 1단계 후에도 한글이 남아있는지 확인
-    const stillHasKorean = /[\uAC00-\uD7AF]/.test(step1Result);
+    // 1.5단계: 문법 규칙 적용 (조사 제거 + 어순 조정)
+    const step2Result = applyGrammarRules(step1Result);
+    console.log('Step 2 (Grammar rules):', step2Result);
     
-    if (!stillHasKorean) {
-      // 한글이 모두 치환됨 - 바로 반환
-      return NextResponse.json({
-        original: text,
-        step1: step1Result,
-        finalTranslation: step1Result,
-        usedAI: false,
-        provider: 'Terminology only'
-      });
-    }
-
-    // 2단계: MyMemory API로 나머지 번역
-    try {
-      console.log('Step 2: MyMemory translation for remaining Korean...');
-      
-      const encodedText = encodeURIComponent(step1Result);
-      const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=ko|en`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.responseStatus === 200 && data.responseData?.translatedText) {
-          const translation = data.responseData.translatedText;
-          
-          if (translation && !translation.includes('MYMEMORY WARNING')) {
-            console.log('Step 2 (MyMemory):', translation);
-            return NextResponse.json({
-              original: text,
-              step1: step1Result,
-              finalTranslation: translation,
-              usedAI: true,
-              provider: 'Terminology + MyMemory'
-            });
-          }
-        }
-      }
-      
-      // MyMemory 실패시 1단계 결과 반환
-      console.warn('MyMemory failed, returning step 1 result');
-      return NextResponse.json({
-        original: text,
-        step1: step1Result,
-        finalTranslation: step1Result,
-        usedAI: false,
-        aiError: 'MyMemory translation failed'
-      });
-    } catch (apiError: any) {
-      console.error('MyMemory error:', apiError?.message);
-      return NextResponse.json({
-        original: text,
-        step1: step1Result,
-        finalTranslation: step1Result,
-        usedAI: false,
-        aiError: `Translation failed: ${apiError?.message}`
-      });
-    }
+    // 최종 결과 반환 (AI 없이 규칙 기반만 사용)
+    return NextResponse.json({
+      original: text,
+      step1: step1Result,
+      step2: step2Result,
+      finalTranslation: step2Result,
+      usedAI: false,
+      provider: 'Rule-based (Terminology + Grammar)'
+    });
   } catch (error) {
     console.error('Translation error:', error);
     return NextResponse.json({ error: 'Translation failed' }, { status: 500 });

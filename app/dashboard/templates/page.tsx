@@ -481,6 +481,8 @@ export default function TemplatesPage() {
         name: menuName || menuNameKo,
         koreanName: menuNameKo,
         shelfLife,
+        yield: 1, // 기본값 (생산량)
+        yieldUnit: 'ea', // 기본 단위
         sellingPrice: sellingPrice ? parseFloat(sellingPrice) : null,
         imageUrl, // 이미지 URL 추가
         cookingMethod: cookingSteps.filter(s => s.manual || s.translatedManual),
@@ -535,7 +537,10 @@ export default function TemplatesPage() {
         fetchData();
         setActiveTab('manuals');
       } else {
-        alert('저장 실패');
+        // Extract error message from response
+        const errorData = await res.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.details || '알 수 없는 오류';
+        alert(`저장 실패: ${errorMessage}\n\n상태 코드: ${res.status}`);
       }
     } catch (error) {
       console.error('Save error:', error);

@@ -185,8 +185,15 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(createdManuals, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating manual:', error);
-    return NextResponse.json({ error: 'Failed to create manual' }, { status: 500 });
+    const errorMessage = error?.message || 'Unknown error';
+    const errorDetails = error?.code ? `Error code: ${error.code}` : '';
+    return NextResponse.json({ 
+      error: 'Failed to create manual', 
+      details: errorMessage,
+      code: error?.code,
+      hint: errorDetails || 'Please check console for more details'
+    }, { status: 500 });
   }
 }
