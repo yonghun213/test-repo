@@ -26,27 +26,37 @@ export async function GET() {
   }
 
   try {
-    // Test Prisma with detailed error
-    const { createClient } = require('@libsql/client');
-    const { PrismaLibSql } = require('@prisma/adapter-libsql');
-    const { PrismaClient } = require('@prisma/client');
+    // Check what's exported from adapter-libsql
+    const adapterModule = require('@prisma/adapter-libsql');
+    diagnostics.adapterExports = Object.keys(adapterModule);
+    diagnostics.PrismaLibSqlType = typeof adapterModule.PrismaLibSql;
     
-    const libsql = createClient({
-      url: process.env.TURSO_DATABASE_URL!,
-      authToken: process.env.TURSO_AUTH_TOKEN!,
-    });
+    // Try different export names
+    const AdapterClass = adapterModule.PrismaLibSql || adapterModule.LibSQLAdapter || adapterModule.default;
+    diagnostics.adapterClassFound = !!AdapterClass;
+    diagnostics.adapterClassName = AdapterClass?.name || 'unknown';
     
-    diagnostics.libsqlClient = 'CREATED';
-    
-    const adapter = new PrismaLibSql(libsql);
-    diagnostics.adapterCreated = 'SUCCESS';
-    
-    const prisma = new PrismaClient({ adapter } as any);
-    diagnostics.prismaClient = 'CREATED';
-    
-    const count = await prisma.user.count();
-    diagnostics.prismaConnection = 'SUCCESS';
-    diagnostics.prismaUserCount = count;
+    if (AdapterClass) {
+      const { createClient } = require('@libsql/client');
+      const { PrismaClient } = require('@prisma/client');
+      
+      const libsql = createClient({
+        url: process.env.TURSO_DATABASE_URL!,
+        authToken: process.env.TURSO_AUTH_TOKEN!,
+      });
+      
+      diagnostics.libsqlClient = 'CREATED';
+      
+      const adapter = new AdapterClass(libsql);
+      diagnostics.adapterCreated = 'SUCCESS';
+      
+      const prisma = new PrismaClient({ adapter } as any);
+      diagnostics.prismaClient = 'CREATED';
+      
+      const count = await prisma.user.count();
+      diagnostics.prismaConnection = 'SUCCESS';
+      diagnostics.prismaUserCount = count;
+    }
   } catch (e: any) {
     diagnostics.prismaConnection = 'FAILED';
     diagnostics.prismaError = e.message;
