@@ -228,6 +228,46 @@ export default function TemplatesPage() {
     }
   };
 
+  // Update ingredient prices when template changes
+  useEffect(() => {
+    if (editorTemplateId && activeTab === 'editor') {
+      updatePricesFromTemplate(editorTemplateId);
+    }
+  }, [editorTemplateId, activeTab]);
+
+  const updatePricesFromTemplate = async (templateId: string) => {
+    if (!templateId) return;
+    
+    try {
+      // Fetch template items
+      const res = await fetch(`/api/ingredient-templates/${templateId}/items`);
+      if (res.ok) {
+        const templateItems = await res.json();
+        
+        // Update prices in current ingredients list
+        setIngredients(prevIngredients => {
+          return prevIngredients.map(ing => {
+            if (!ing.ingredientId) return ing;
+            
+            // Find matching template item
+            const templateItem = templateItems.find((item: any) => item.ingredientId === ing.ingredientId);
+            
+            if (templateItem) {
+              return {
+                ...ing,
+                price: templateItem.price,
+                currency: templateItem.currency
+              };
+            }
+            return ing;
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update prices from template:', error);
+    }
+  };
+
   // Ingredient search with template price
   const searchIngredients = useCallback(async (query: string) => {
     if (!query || query.length < 1) {
