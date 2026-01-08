@@ -38,10 +38,15 @@ export default function StoreDetailTabs({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedQuickStat, setSelectedQuickStat] = useState<'tasks' | 'files' | 'milestones' | null>(null);
+  const [activePanel, setActivePanel] = useState<'tasks' | 'files' | 'gallery'>('tasks');
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const canEdit = ['ADMIN', 'PM', 'CONTRIBUTOR'].includes(userRole);
+  
+  // Filter images for gallery
+  const galleryImages = store.files?.filter((f: any) => 
+    f.fileType?.startsWith('image/') || f.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+  ) || [];
 
   // Update timezone clock every second
   useEffect(() => {
@@ -169,11 +174,240 @@ export default function StoreDetailTabs({
 
       {activeTab === 'overview' ? (
         <div className="space-y-6">
-          {/* Calendar/Gantt View Toggle - Moved to Top */}
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900">Store Overview</h2>
-            <div className="flex items-center gap-3">
-              {/* View Toggle */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column - Owner & Store Info */}
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  Owner Information
+                  <span className="ml-2 text-sm font-normal text-gray-500">Name {store.ownerName || '-'}</span>
+                </h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">Email</div>
+                      <div className="text-sm font-medium">{store.ownerEmail || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">Phone</div>
+                      <div className="text-sm font-medium">{store.ownerPhone || '-'}</div>
+                    </div>
+                  </div>
+                  {store.ownerEmail && (
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">Email</div>
+                      <div className="text-sm font-medium">{store.ownerEmail}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Store Information</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <div className="text-sm text-gray-500 mb-1">Address</div>
+                      <div className="text-sm font-medium">{store.address || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">City</div>
+                      <div className="text-sm font-medium">{store.city || '-'}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">Country</div>
+                      <div className="text-sm font-medium">{store.country}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">Timezone</div>
+                      <div className="text-sm font-medium">{store.timezone}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">Store Phone</div>
+                      <div className="text-sm font-medium">{store.storePhone || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Stats Buttons & Interactive Panel */}
+            <div className="space-y-6">
+              {/* 3 Buttons Row */}
+              <div className="grid grid-cols-3 gap-4">
+                <button
+                  onClick={() => setActivePanel('tasks')}
+                  className={`p-4 rounded-lg border-2 transition-all text-center ${
+                    activePanel === 'tasks'
+                      ? 'border-orange-500 bg-orange-50'
+                      : 'border-gray-200 bg-white hover:border-orange-200'
+                  }`}
+                >
+                  <div className="flex justify-center mb-2">
+                    <CheckSquare className={`w-6 h-6 ${activePanel === 'tasks' ? 'text-orange-500' : 'text-gray-400'}`} />
+                  </div>
+                  <div className="text-xl font-bold text-gray-900">{tasks.length}</div>
+                  <div className={`text-xs ${activePanel === 'tasks' ? 'text-orange-600' : 'text-gray-500'}`}>Tasks</div>
+                </button>
+
+                <button
+                  onClick={() => setActivePanel('files')}
+                  className={`p-4 rounded-lg border-2 transition-all text-center ${
+                    activePanel === 'files'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 bg-white hover:border-blue-200'
+                  }`}
+                >
+                  <div className="flex justify-center mb-2">
+                    <FileText className={`w-6 h-6 ${activePanel === 'files' ? 'text-blue-500' : 'text-gray-400'}`} />
+                  </div>
+                  <div className="text-xl font-bold text-gray-900">{store.files?.length || 0}</div>
+                  <div className={`text-xs ${activePanel === 'files' ? 'text-blue-600' : 'text-gray-500'}`}>Files</div>
+                </button>
+
+                <button
+                  onClick={() => setActivePanel('gallery')}
+                  className={`p-4 rounded-lg border-2 transition-all text-center ${
+                    activePanel === 'gallery'
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-gray-200 bg-white hover:border-green-200'
+                  }`}
+                >
+                  <div className="flex justify-center mb-2">
+                    <Flag className={`w-6 h-6 ${activePanel === 'gallery' ? 'text-green-500' : 'text-gray-400'}`} />
+                  </div>
+                  <div className="text-xl font-bold text-gray-900">{galleryImages.length}</div>
+                  <div className={`text-xs ${activePanel === 'gallery' ? 'text-green-600' : 'text-gray-500'}`}>Gallery</div>
+                </button>
+              </div>
+
+              {/* Interactive Blue Panel */}
+              <div className="bg-blue-600 rounded-xl shadow-lg p-6 min-h-[400px]">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2 text-white">
+                    {activePanel === 'tasks' && <CheckSquare className="w-5 h-5" />}
+                    {activePanel === 'files' && <FileText className="w-5 h-5" />}
+                    {activePanel === 'gallery' && <Flag className="w-5 h-5" />}
+                    <h3 className="text-lg font-bold">
+                      {activePanel === 'tasks' && `Recent Tasks (${tasks.length})`}
+                      {activePanel === 'files' && `Files (${store.files?.length || 0})`}
+                      {activePanel === 'gallery' && `Gallery (${galleryImages.length})`}
+                    </h3>
+                  </div>
+                  {activePanel === 'tasks' && (
+                    <button 
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded transition-colors"
+                    >
+                      + Add Task
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-3 max-h-[340px] overflow-y-auto pr-2 custom-scrollbar">
+                  {/* Tasks List */}
+                  {activePanel === 'tasks' && (
+                    tasks.length === 0 ? (
+                      <div className="text-center py-10 text-white/70">
+                        <p>No tasks found.</p>
+                      </div>
+                    ) : (
+                      tasks.map(task => (
+                        <div 
+                          key={task.id}
+                          onClick={() => handleEventClick(task)}
+                          className="bg-white/10 hover:bg-white/20 rounded-lg p-3 cursor-pointer transition-colors border border-white/10"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-medium text-white mb-1">{task.title}</div>
+                              {task.dueDate && (
+                                <div className="text-xs text-white/70">
+                                  Due: {new Date(task.dueDate).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              task.status === 'COMPLETED' ? 'bg-green-500/20 text-green-100' : 'bg-white/20 text-white'
+                            }`}>
+                              {task.status.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )
+                  )}
+
+                  {/* Files List */}
+                  {activePanel === 'files' && (
+                    store.files?.length === 0 ? (
+                      <div className="text-center py-10 text-white/70">
+                        <p>No files uploaded.</p>
+                      </div>
+                    ) : (
+                      store.files.map((file: any) => (
+                        <div 
+                          key={file.id}
+                          className="bg-white/10 hover:bg-white/20 rounded-lg p-3 transition-colors border border-white/10 flex justify-between items-center"
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <FileText className="w-8 h-8 text-white/80 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <div className="font-medium text-white truncate">{file.fileName}</div>
+                              <div className="text-xs text-white/70">
+                                {(file.fileSize / 1024).toFixed(1)} KB • {new Date(file.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
+                          <a 
+                            href={file.filePath}
+                            download
+                            className="p-2 hover:bg-white/10 rounded-full text-white/90 transition-colors"
+                            title="Download"
+                          >
+                            <Download className="w-5 h-5" />
+                          </a>
+                        </div>
+                      ))
+                    )
+                  )}
+
+                  {/* Gallery Grid */}
+                  {activePanel === 'gallery' && (
+                    galleryImages.length === 0 ? (
+                      <div className="text-center py-10 text-white/70">
+                        <p>No images found in files.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        {galleryImages.map((file: any) => (
+                          <div 
+                            key={file.id}
+                            className="aspect-square bg-black/20 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative group"
+                            onClick={() => window.open(file.filePath, '_blank')}
+                          >
+                            <img 
+                              src={file.filePath} 
+                              alt={file.fileName}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                              <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Area - Calendar & Gantt */}
+          <div className="bg-white rounded-lg shadow p-4 mt-8">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Task Schedule</h3>
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('calendar')}
@@ -198,342 +432,7 @@ export default function StoreDetailTabs({
                   Gantt
                 </button>
               </div>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium text-sm"
-              >
-                + Add Task
-              </button>
             </div>
-          </div>
-
-          {/* Top Row - Owner & Stats (Left) + Store Info (Right) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Side - Owner Information + Interactive Quick Stats */}
-            <div className="space-y-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Owner Information
-                </h3>
-                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {store.ownerName && (
-                    <div>
-                      <dt className="text-sm text-gray-500">Name</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {store.ownerName}
-                      </dd>
-                    </div>
-                  )}
-                  {store.ownerPhone && (
-                    <div>
-                      <dt className="text-sm text-gray-500">Phone</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {store.ownerPhone}
-                      </dd>
-                    </div>
-                  )}
-                  {store.ownerEmail && (
-                    <div className="md:col-span-2">
-                      <dt className="text-sm text-gray-500">Email</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {store.ownerEmail}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
-
-              {/* Store Information Card */}
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Store Information
-                </h3>
-                <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <dt className="text-sm text-gray-500">Status</dt>
-                    <dd className="mt-1">
-                      <span
-                        className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
-                          store.status === 'PLANNING'
-                            ? 'bg-blue-100 text-blue-800'
-                            : store.status === 'CONTRACT_SIGNED'
-                            ? 'bg-purple-100 text-purple-800'
-                            : store.status === 'CONSTRUCTION'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : store.status === 'PRE_OPENING'
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}
-                      >
-                        {store.status.replace(/_/g, ' ')}
-                      </span>
-                    </dd>
-                  </div>
-                  {store.tempName && (
-                    <div>
-                      <dt className="text-sm text-gray-500">Temporary Name</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {store.tempName}
-                      </dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt className="text-sm text-gray-500">Country</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{store.country}</dd>
-                  </div>
-                  {store.city && (
-                    <div>
-                      <dt className="text-sm text-gray-500">City</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{store.city}</dd>
-                    </div>
-                  )}
-                  {store.address && (
-                    <div className="md:col-span-2">
-                      <dt className="text-sm text-gray-500">Address</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {store.address}
-                      </dd>
-                    </div>
-                  )}
-                  <div className="md:col-span-2">
-                    <dt className="text-sm text-gray-500">Timezone</dt>
-                    <dd className="mt-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-900">{store.timezone}</span>
-                        <span className="text-lg font-mono font-semibold text-blue-600">
-                          {getTimezoneTime()}
-                        </span>
-                      </div>
-                    </dd>
-                  </div>
-                  {store.storePhone && (
-                    <div>
-                      <dt className="text-sm text-gray-500">Store Phone</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {store.storePhone}
-                      </dd>
-                    </div>
-                  )}
-                  {store.storeEmail && (
-                    <div>
-                      <dt className="text-sm text-gray-500">Store Email</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {store.storeEmail}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
-            </div>
-
-            {/* Right Side - Interactive Quick Stats with Detail Panel */}
-            <div className="space-y-4">
-              {/* Recent Tasks Panel - Blue Background with White Cards */}
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6">
-                <div className="flex items-center gap-2 mb-5">
-                  <CheckSquare className="w-5 h-5 text-white" />
-                  <h3 className="text-lg font-semibold text-white">Recent Tasks ({tasks.length > 0 ? Math.min(tasks.length, 5) : 0})</h3>
-                </div>
-                
-                <div className="space-y-3 max-h-[480px] overflow-y-auto pr-2 custom-scrollbar">
-                  {tasks.length === 0 ? (
-                    <div className="text-center py-12 text-white/80">
-                      <CheckSquare className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                      <p className="text-sm mb-4">No tasks yet</p>
-                      <button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Create First Task
-                      </button>
-                    </div>
-                  ) : (
-                    tasks.slice(0, 5).map((task) => (
-                      <button
-                        key={task.id}
-                        onClick={() => {
-                          setSelectedTask(task);
-                          setIsEditModalOpen(true);
-                        }}
-                        className="w-full text-left bg-white rounded-lg p-4 hover:shadow-lg transition-all border-l-4 border-orange-400 group"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-gray-900 mb-1 group-hover:text-orange-600 transition-colors">
-                              {task.title}
-                            </div>
-                            {task.dueDate && (
-                              <div className="text-xs text-gray-500 flex items-center gap-1">
-                                <span>Due:</span>
-                                <span className="font-medium">
-                                  {new Date(task.dueDate).toLocaleDateString('en-US', { 
-                                    year: 'numeric',
-                                    month: '2-digit',
-                                    day: '2-digit'
-                                  })}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-col items-end gap-1.5">
-                            <span
-                              className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
-                                task.status === 'COMPLETED'
-                                  ? 'bg-green-100 text-green-700'
-                                  : task.status === 'IN_PROGRESS'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}
-                            >
-                              {task.status === 'NOT_STARTED' ? 'NOT STARTED' : task.status.replace(/_/g, ' ')}
-                            </span>
-                            {task.phase && (
-                              <span className="text-xs bg-orange-100 text-orange-700 px-2.5 py-1 rounded-full font-medium">
-                                {task.phase.replace(/_/g, ' ')}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-                
-                {tasks.length > 5 && (
-                  <div className="mt-4 pt-4 border-t border-white/20 text-center">
-                    <p className="text-white/80 text-sm">
-                      +{tasks.length - 5} more tasks
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Stats Row - Below Main Cards */}
-          <div className="grid grid-cols-3 gap-6">
-            <div className="bg-white rounded-lg shadow p-6 text-center hover:shadow-lg transition-shadow">
-              <div className="flex justify-center mb-3">
-                <div className="p-3 bg-orange-100 rounded-full">
-                  <CheckSquare className="w-6 h-6 text-orange-600" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-gray-900 mb-1">{tasks.length}</div>
-              <div className="text-sm text-gray-500 font-medium">Total Tasks</div>
-              <div className="mt-2 text-xs text-gray-400">
-                {tasks.filter(t => t.status === 'COMPLETED').length} completed
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6 text-center hover:shadow-lg transition-shadow">
-              <div className="flex justify-center mb-3">
-                <div className="p-3 bg-blue-100 rounded-full">
-                  <FileText className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-gray-900 mb-1">{store.files.length}</div>
-              <div className="text-sm text-gray-500 font-medium">Files Uploaded</div>
-              <div className="mt-2 text-xs text-gray-400">
-                {(store.files.reduce((sum: number, f: any) => sum + (f.fileSize || 0), 0) / 1024 / 1024).toFixed(1)} MB total
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6 text-center hover:shadow-lg transition-shadow">
-              <div className="flex justify-center mb-3">
-                <div className="p-3 bg-green-100 rounded-full">
-                  <Flag className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-              <div className="text-3xl font-bold text-gray-900 mb-1">{store.milestones.length}</div>
-              <div className="text-sm text-gray-500 font-medium">Milestones</div>
-              <div className="mt-2 text-xs text-gray-400">
-                {store.milestones.filter((m: any) => new Date(m.date) < new Date()).length} passed
-              </div>
-            </div>
-          </div>
-
-          {/* Files & Milestones Section */}
-          {(store.files.length > 0 || store.milestones.length > 0) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Files */}
-              {store.files.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h4 className="font-semibold text-lg mb-4 flex items-center gap-2 text-gray-900">
-                    <FileText className="w-5 h-5 text-blue-600" />
-                    Recent Files
-                  </h4>
-                  <div className="space-y-2">
-                    {store.files.slice(0, 3).map((file: any) => (
-                      <div
-                        key={file.id}
-                        className="p-3 border border-gray-200 hover:border-blue-300 rounded-lg transition-colors"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm text-gray-900 truncate">{file.fileName}</div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {(file.fileSize / 1024).toFixed(1)} KB · {new Date(file.createdAt).toLocaleDateString()}
-                            </div>
-                          </div>
-                          <div className="flex gap-1 ml-2">
-                            <button
-                              onClick={() => window.open(file.filePath, '_blank')}
-                              className="p-1.5 hover:bg-gray-100 rounded text-gray-600 hover:text-blue-600 transition-colors"
-                              title="Preview"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <a
-                              href={file.filePath}
-                              download={file.fileName}
-                              className="p-1.5 hover:bg-gray-100 rounded text-gray-600 hover:text-green-600 transition-colors"
-                              title="Download"
-                            >
-                              <Download className="w-4 h-4" />
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Upcoming Milestones */}
-              {store.milestones.length > 0 && (
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h4 className="font-semibold text-lg mb-4 flex items-center gap-2 text-gray-900">
-                    <Flag className="w-5 h-5 text-green-600" />
-                    Upcoming Milestones
-                  </h4>
-                  <div className="space-y-2">
-                    {store.milestones.slice(0, 3).map((milestone: any) => (
-                      <div
-                        key={milestone.id}
-                        className="p-3 border border-gray-200 hover:border-green-300 rounded-lg transition-colors"
-                      >
-                        <div className="font-medium text-sm text-gray-900">{milestone.type.replace(/_/g, ' ')}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          📅 {new Date(milestone.date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Hidden compatibility wrapper for old code */}
-          <div className="hidden"></div>
-
-          {/* Bottom - Calendar/Gantt View */}
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Task Schedule</h3>
             
             {viewMode === 'calendar' ? (
               <CalendarView
