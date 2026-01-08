@@ -163,7 +163,7 @@ export async function PUT(
   }
 }
 
-// DELETE - Delete a manual
+// DELETE - Delete a manual (Soft delete)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -176,8 +176,10 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    await prisma.menuManual.delete({
-      where: { id }
+    // Soft delete: set isActive to false
+    await prisma.menuManual.update({
+      where: { id },
+      data: { isActive: false }
     });
 
     return NextResponse.json({ success: true });

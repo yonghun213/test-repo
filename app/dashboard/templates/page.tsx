@@ -101,7 +101,7 @@ const EMPTY_INGREDIENT: ManualIngredient = {
 };
 
 export default function TemplatesPage() {
-  const [activeTab, setActiveTab] = useState<'editor' | 'manuals' | 'costTable'>('editor');
+  const [activeTab, setActiveTab] = useState<'editor' | 'manuals' | 'costTable' | 'trash'>('editor');
   
   // Editor State
   const [menuName, setMenuName] = useState('');
@@ -461,14 +461,14 @@ export default function TemplatesPage() {
     }
   };
 
-  // Delete manual
+  // Delete manual (Soft Delete)
   const handleDeleteManual = async (manual: SavedManual) => {
-    if (!confirm(`"${manual.name}" 매뉴얼을 삭제하시겠습니까?`)) return;
+    if (!confirm(`"${manual.name}" 매뉴얼을 삭제하시겠습니까? 휴지통으로 이동됩니다.`)) return;
     
     try {
       const res = await fetch(`/api/manuals/${manual.id}`, { method: 'DELETE' });
       if (res.ok) {
-        alert('매뉴얼이 삭제되었습니다.');
+        alert('매뉴얼이 휴지통으로 이동되었습니다.');
         fetchData();
       } else {
         alert('삭제 실패');
@@ -476,6 +476,69 @@ export default function TemplatesPage() {
     } catch (error) {
       console.error('Delete error:', error);
       alert('삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  // Restore manual
+  const handleRestoreManual = async (manual: SavedManual) => {
+    try {
+      const res = await fetch(`/api/manuals/${manual.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: true })
+      });
+      
+      if (res.ok) {
+        alert('매뉴얼이 복구되었습니다.');
+        fetchData();
+      } else {
+        alert('복구 실패');
+      }
+    } catch (error) {
+      console.error('Restore error:', error);
+      alert('복구 중 오류가 발생했습니다.');
+    }
+  };
+
+  // Bulk Delete (Soft Delete)
+  const handleBulkDelete = async () => {
+    if (selectedManualIds.size === 0) return;
+    if (!confirm(`${selectedManualIds.size}개 매뉴얼을 삭제하시겠습니까? 휴지통으로 이동됩니다.`)) return;
+
+    try {
+      const promises = Array.from(selectedManualIds).map(id => 
+        fetch(`/api/manuals/${id}`, { method: 'DELETE' })
+      );
+      await Promise.all(promises);
+      alert('선택한 매뉴얼이 휴지통으로 이동되었습니다.');
+      setSelectedManualIds(new Set());
+      fetchData();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      alert('일괄 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  // Bulk Restore
+  const handleBulkRestore = async () => {
+    if (selectedManualIds.size === 0) return;
+    if (!confirm(`${selectedManualIds.size}개 매뉴얼을 복구하시겠습니까?`)) return;
+
+    try {
+      const promises = Array.from(selectedManualIds).map(id => 
+        fetch(`/api/manuals/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isActive: true })
+        })
+      );
+      await Promise.all(promises);
+      alert('선택한 매뉴얼이 복구되었습니다.');
+      setSelectedManualIds(new Set());
+      fetchData();
+    } catch (error) {
+      console.error('Bulk restore error:', error);
+      alert('일괄 복구 중 오류가 발생했습니다.');
     }
   };
 
@@ -754,9 +817,16 @@ export default function TemplatesPage() {
     return Array.from(templateMap.values());
   };
 
-  // Get manuals filtered by template
+  // Get manuals filtered by template and status
   const getFilteredManuals = () => {
     let filtered = savedManuals;
+
+    // Filter by Active/Trash tab
+    if (activeTab === 'trash') {
+      filtered = filtered.filter(m => (m as any).isActive === false);
+    } else {
+      filtered = filtered.filter(m => (m as any).isActive !== false);
+    }
     
     // Filter by selected group (if using old group system)
     if (selectedGroupId) {
@@ -913,7 +983,7 @@ export default function TemplatesPage() {
             }`}
           >
             <Settings className="w-4 h-4 inline mr-2" />
-            Saved Manuals ({savedManuals.length})
+            Saved Manuals ({savedManuals.filter(m => (m as any).isActive !== false).length})
           </button>
           <button
             onClick={() => setActiveTab('costTable')}
@@ -925,6 +995,17 @@ export default function TemplatesPage() {
           >
             <Table className="w-4 h-4 inline mr-2" />
             Cost Table
+          </button>
+          <button
+            onClick={() => setActiveTab('trash')}
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeTab === 'trash' 
+                ? 'border-red-500 text-red-600' 
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Trash2 className="w-4 h-4 inline mr-2" />
+            Trash ({savedManuals.filter(m => (m as any).isActive === false).length})
           </button>
         </nav>
       </div>
@@ -1253,10 +1334,10 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      {/* Saved Manuals Tab */}
-      {activeTab === 'manuals' && (
+      {/* Saved Manuals & Trash Tab */}
+      {(activeTab === 'manuals' || activeTab === 'trash') && (
         <div className="space-y-4">
-          {/* Template Filter & Bulk Application - Single Row */}
+          {/* Controls Row */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-end gap-4">
               {/* Left: Template Filter */}
@@ -1276,44 +1357,68 @@ export default function TemplatesPage() {
                     ))}
                     <option value="__none__">미적용 (가격 없음)</option>
                   </select>
-                  <button
-                    onClick={createGroup}
-                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                    title="새 그룹 생성"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
+                  {activeTab === 'manuals' && (
+                    <button
+                      onClick={createGroup}
+                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                      title="새 그룹 생성"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Right: Bulk Template Application */}
+              {/* Right: Actions */}
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   {selectedManualIds.size > 0 ? (
                     <span className="text-blue-600 font-semibold">{selectedManualIds.size}개 선택됨</span>
                   ) : (
-                    '가격 템플릿 선택'
+                    '선택 작업'
                   )}
                 </label>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedTemplateId}
-                    onChange={(e) => setSelectedTemplateId(e.target.value)}
-                    className="flex-1 px-3 py-2 border rounded-lg"
-                    disabled={selectedManualIds.size === 0}
-                  >
-                    <option value="">가격 템플릿 선택...</option>
-                    {priceTemplates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name} ({t.country || 'N/A'})</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={applyTemplateToSelected}
-                    disabled={selectedManualIds.size === 0 || !selectedTemplateId}
-                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    선택 항목에 적용
-                  </button>
+                <div className="flex gap-2 justify-end">
+                  {activeTab === 'manuals' ? (
+                    <>
+                      <select
+                        value={selectedTemplateId}
+                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                        className="flex-1 px-3 py-2 border rounded-lg"
+                        disabled={selectedManualIds.size === 0}
+                      >
+                        <option value="">가격 템플릿 선택...</option>
+                        {priceTemplates.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name} ({t.country || 'N/A'})</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={applyTemplateToSelected}
+                        disabled={selectedManualIds.size === 0 || !selectedTemplateId}
+                        className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm"
+                      >
+                        가격 적용
+                      </button>
+                      <button
+                        onClick={handleBulkDelete}
+                        disabled={selectedManualIds.size === 0}
+                        className="px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm flex items-center"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" /> 삭제
+                      </button>
+                    </>
+                  ) : (
+                    // Trash actions
+                    <>
+                      <button
+                        onClick={handleBulkRestore}
+                        disabled={selectedManualIds.size === 0}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" /> 선택 복구
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -1431,13 +1536,23 @@ export default function TemplatesPage() {
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => handleDeleteManual(manual)}
-                            className="p-1 text-gray-400 hover:text-red-500" 
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {activeTab === 'manuals' ? (
+                            <button 
+                              onClick={() => handleDeleteManual(manual)}
+                              className="p-1 text-gray-400 hover:text-red-500" 
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => handleRestoreManual(manual)}
+                              className="p-1 text-gray-400 hover:text-blue-500" 
+                              title="Restore"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1446,7 +1561,9 @@ export default function TemplatesPage() {
                 {getGroupManuals().length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                      저장된 매뉴얼이 없습니다. Manual Editor에서 새 매뉴얼을 작성하세요.
+                      {activeTab === 'manuals' 
+                        ? '저장된 매뉴얼이 없습니다. Manual Editor에서 새 매뉴얼을 작성하세요.'
+                        : '휴지통이 비어있습니다.'}
                     </td>
                   </tr>
                 )}
