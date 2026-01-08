@@ -56,6 +56,30 @@ export async function GET(request: NextRequest) {
       results.push(`ℹ️ Column 'totalCost' might exist: ${e.message}`);
     }
 
+    // 7. Add 'isActive' column
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "ManualCostVersion" ADD COLUMN "isActive" BOOLEAN DEFAULT 1`);
+      results.push('✅ Added column: isActive');
+    } catch (e: any) {
+      results.push(`ℹ️ Column 'isActive' might exist: ${e.message}`);
+    }
+
+    // 8. Add 'createdAt' column
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "ManualCostVersion" ADD COLUMN "createdAt" DATETIME DEFAULT CURRENT_TIMESTAMP`);
+      results.push('✅ Added column: createdAt');
+    } catch (e: any) {
+      results.push(`ℹ️ Column 'createdAt' might exist: ${e.message}`);
+    }
+
+    // 9. Add 'updatedAt' column
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "ManualCostVersion" ADD COLUMN "updatedAt" DATETIME DEFAULT CURRENT_TIMESTAMP`);
+      results.push('✅ Added column: updatedAt');
+    } catch (e: any) {
+      results.push(`ℹ️ Column 'updatedAt' might exist: ${e.message}`);
+    }
+
     return NextResponse.json({ 
       success: true, 
       message: 'Schema update attempts finished', 
