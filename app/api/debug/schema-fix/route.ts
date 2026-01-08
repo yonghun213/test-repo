@@ -80,6 +80,30 @@ export async function GET(request: NextRequest) {
       results.push(`ℹ️ Column 'updatedAt' might exist: ${e.message}`);
     }
 
+    // 10. Add 'deletedAt' to MenuManual
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "MenuManual" ADD COLUMN "deletedAt" DATETIME`);
+      results.push('✅ Added column: deletedAt to MenuManual');
+    } catch (e: any) {
+      results.push(`ℹ️ Column 'deletedAt' might exist: ${e.message}`);
+    }
+
+    // 11. Add 'deletedBy' to MenuManual
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "MenuManual" ADD COLUMN "deletedBy" TEXT`);
+      results.push('✅ Added column: deletedBy to MenuManual');
+    } catch (e: any) {
+      results.push(`ℹ️ Column 'deletedBy' might exist: ${e.message}`);
+    }
+
+    // 12. Add 'isArchived' to MenuManual (for Hard Delete)
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "MenuManual" ADD COLUMN "isArchived" BOOLEAN DEFAULT 0`);
+      results.push('✅ Added column: isArchived to MenuManual');
+    } catch (e: any) {
+      results.push(`ℹ️ Column 'isArchived' might exist: ${e.message}`);
+    }
+
     return NextResponse.json({ 
       success: true, 
       message: 'Schema update attempts finished', 

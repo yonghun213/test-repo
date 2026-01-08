@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FileText, Download, Plus, Trash2, Eye, Save, RefreshCw, Settings, Table, Search, X, Edit, ChevronDown, Upload, Image, ChevronUp } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { FileText, Download, Plus, Trash2, Eye, Save, RefreshCw, Settings, Table, Search, X, Edit, ChevronDown, Upload, Image, ChevronUp, Archive, History } from 'lucide-react';
 
 // 타입 정의
 interface IngredientSuggestion {
@@ -101,7 +102,9 @@ const EMPTY_INGREDIENT: ManualIngredient = {
 };
 
 export default function TemplatesPage() {
-  const [activeTab, setActiveTab] = useState<'editor' | 'manuals' | 'costTable' | 'trash'>('editor');
+  const { data: session } = useSession();
+  const isMaster = session?.user?.email === 'kun.lee@bbqchickenca.com';
+  const [activeTab, setActiveTab] = useState<'editor' | 'manuals' | 'costTable' | 'trash' | 'archived'>('editor');
   
   // Editor State
   const [menuName, setMenuName] = useState('');
@@ -485,7 +488,7 @@ export default function TemplatesPage() {
       const res = await fetch(`/api/manuals/${manual.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: true })
+        body: JSON.stringify({ isActive: true, isArchived: false })
       });
       
       if (res.ok) {
@@ -497,6 +500,53 @@ export default function TemplatesPage() {
     } catch (error) {
       console.error('Restore error:', error);
       alert('복구 중 오류가 발생했습니다.');
+    }
+  };
+
+  // Hard Delete (Archive)
+  const handleHardDelete = async (manual: SavedManual) => {
+    const input = prompt("완전 삭제하시려면 'TRASH'를 대문자로 입력하세요.\n이 작업 후에는 일반 사용자는 볼 수 없게 되며 마스터 계정에서만 복구 가능합니다.");
+    if (input !== 'TRASH') return;
+
+    try {
+      const res = await fetch(`/api/manuals/${manual.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isArchived: true, isActive: false })
+      });
+      
+      if (res.ok) {
+        alert('매뉴얼이 완전 삭제(보관) 처리되었습니다.');
+        fetchData();
+      } else {
+        alert('삭제 실패');
+      }
+    } catch (error) {
+      console.error('Hard delete error:', error);
+      alert('완전 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  // Master Restore (From Archive to Trash)
+  const handleMasterRestore = async (manual: SavedManual) => {
+    if (!confirm('이 매뉴얼을 휴지통으로 복구하시겠습니까? (이후 일반 사용자가 휴지통에서 볼 수 있습니다)')) return;
+
+    try {
+      const res = await fetch(`/api/manuals/${manual.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isArchived: false, isActive: false }) // Move to Trash
+      });
+      
+      if (res.ok) {
+        alert('매뉴얼이 휴지통으로 복구되었습니다.');
+        fetchData();
+      } else {
+        alert('복구 실패');
+      }
+    } catch (error) {
+      console.error('Master restore error:', error);
+      alert('마스터 복구 중 오류가 발생했습니다.');
     }
   };
 
@@ -821,11 +871,16 @@ export default function TemplatesPage() {
   const getFilteredManuals = () => {
     let filtered = savedManuals;
 
-    // Filter by Active/Trash tab
+    // Filter by Active/Trash/Archived tab
     if (activeTab === 'trash') {
-      filtered = filtered.filter(m => (m as any).isActive === false);
+      // Soft deleted but not archived
+      filtered = filtered.filter(m => (m as any).isActive === false && !(m as any).isArchived);
+    } else if (activeTab === 'archived') {
+      // Archived (Hard Deleted) - Master only
+      filtered = filtered.filter(m => (m as any).isArchived === true);
     } else {
-      filtered = filtered.filter(m => (m as any).isActive !== false);
+      // Active (not deleted, not archived)
+      filtered = filtered.filter(m => (m as any).isActive !== false && !(m as any).isArchived);
     }
     
     // Filter by selected group (if using old group system)
@@ -983,7 +1038,7 @@ export default function TemplatesPage() {
             }`}
           >
             <Settings className="w-4 h-4 inline mr-2" />
-            Saved Manuals ({savedManuals.filter(m => (m as any).isActive !== false).length})
+            Saved Manuals ({savedManuals.filter(m => (m as any).isActive !== false && !(m as any).isArchived).length})
           </button>
           <button
             onClick={() => setActiveTab('costTable')}
@@ -1005,8 +1060,21 @@ export default function TemplatesPage() {
             }`}
           >
             <Trash2 className="w-4 h-4 inline mr-2" />
-            Trash ({savedManuals.filter(m => (m as any).isActive === false).length})
+            Trash ({savedManuals.filter(m => (m as any).isActive === false && !(m as any).isArchived).length})
           </button>
+          {isMaster && (
+            <button
+              onClick={() => setActiveTab('archived')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === 'archived' 
+                  ? 'border-purple-500 text-purple-600' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Archive className="w-4 h-4 inline mr-2" />
+              Archived ({savedManuals.filter(m => (m as any).isArchived === true).length})
+            </button>
+          )}
         </nav>
       </div>
 
@@ -1273,69 +1341,8 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      {/* Preview Mode */}
-      {activeTab === 'editor' && showPreview && (
-        <div className="bg-white rounded-lg shadow p-8">
-          <div className="border-2 border-black">
-            <div className="bg-yellow-300 p-3 border-b-2 border-black text-center">
-              <h2 className="text-xl font-bold">Manual (Kitchen)</h2>
-            </div>
-            <div className="grid grid-cols-6 border-b-2 border-black">
-              <div className="col-span-1 bg-gray-200 p-2 border-r border-black font-bold">Name</div>
-              <div className="col-span-5 p-2 font-bold text-lg">{menuName || menuNameKo || '[Menu Name]'}</div>
-            </div>
-            {/* Ingredients Table */}
-            <div className="border-b-2 border-black">
-              <div className="bg-gray-200 p-2 font-bold border-b border-black">Ingredients Composition</div>
-              <table className="w-full text-sm">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border-r border-b border-black p-1 w-10">No.</th>
-                    <th className="border-r border-b border-black p-1">Ingredients</th>
-                    <th className="border-r border-b border-black p-1 w-16">Weight</th>
-                    <th className="border-r border-b border-black p-1 w-12">Unit</th>
-                    <th className="border-b border-black p-1 w-20">Purchase</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ingredients.filter(ing => ing.name || ing.koreanName).map((ing, i) => (
-                    <tr key={i}>
-                      <td className="border-r border-b border-black p-1 text-center">{ing.no}</td>
-                      <td className="border-r border-b border-black p-1">{ing.name || ing.koreanName}</td>
-                      <td className="border-r border-b border-black p-1 text-center">{ing.weight}</td>
-                      <td className="border-r border-b border-black p-1 text-center">{ing.unit}</td>
-                      <td className="border-b border-black p-1 text-center">{ing.purchase}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {/* Cooking Method */}
-            <div>
-              <div className="bg-gray-200 p-2 font-bold border-b border-black text-center">COOKING METHOD</div>
-              <table className="w-full text-sm">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border-r border-b border-black p-2 w-40">PROCESS</th>
-                    <th className="border-b border-black p-2">MANUAL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cookingSteps.filter(s => s.manual || s.translatedManual).map((step, i) => (
-                    <tr key={i}>
-                      <td className="border-r border-b border-black p-2 bg-gray-50 font-medium">{step.process}</td>
-                      <td className="border-b border-black p-2">{step.translatedManual || step.manual}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Saved Manuals & Trash Tab */}
-      {(activeTab === 'manuals' || activeTab === 'trash') && (
+      {/* Saved Manuals, Trash & Archived Tab */}
+      {(activeTab === 'manuals' || activeTab === 'trash' || activeTab === 'archived') && (
         <div className="space-y-4">
           {/* Controls Row */}
           <div className="bg-white rounded-lg shadow p-4">
@@ -1379,7 +1386,7 @@ export default function TemplatesPage() {
                   )}
                 </label>
                 <div className="flex gap-2 justify-end">
-                  {activeTab === 'manuals' ? (
+                  {activeTab === 'manuals' && (
                     <>
                       <select
                         value={selectedTemplateId}
@@ -1407,17 +1414,15 @@ export default function TemplatesPage() {
                         <Trash2 className="w-4 h-4 mr-1" /> 삭제
                       </button>
                     </>
-                  ) : (
-                    // Trash actions
-                    <>
-                      <button
-                        onClick={handleBulkRestore}
-                        disabled={selectedManualIds.size === 0}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center"
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" /> 선택 복구
-                      </button>
-                    </>
+                  )}
+                  {activeTab === 'trash' && (
+                    <button
+                      onClick={handleBulkRestore}
+                      disabled={selectedManualIds.size === 0}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" /> 선택 복구
+                    </button>
                   )}
                 </div>
               </div>
@@ -1452,6 +1457,11 @@ export default function TemplatesPage() {
                   <th onClick={() => handleSort('costPct')} className="px-4 py-3 text-right text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-100">
                     원가율 <SortIcon field="costPct" />
                   </th>
+                  {activeTab === 'trash' && (
+                    <>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">삭제 정보</th>
+                    </>
+                  )}
                   <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Actions</th>
                 </tr>
               </thead>
@@ -1513,44 +1523,75 @@ export default function TemplatesPage() {
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
+                      {activeTab === 'trash' && (
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          <div>{(manual as any).deletedBy || 'Unknown'}</div>
+                          <div className="text-xs text-gray-400">
+                            {(manual as any).deletedAt ? new Date((manual as any).deletedAt).toLocaleDateString() : '-'}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <div className="flex justify-center gap-2">
-                          <button 
-                            onClick={() => handlePreviewManual(manual)}
-                            className="p-1 text-gray-400 hover:text-blue-500" 
-                            title="Preview"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDownloadExcel(manual)}
-                            className="p-1 text-gray-400 hover:text-green-500" 
-                            title="Excel"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleEditManual(manual)}
-                            className="p-1 text-gray-400 hover:text-orange-500" 
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          {activeTab === 'manuals' ? (
+                          {activeTab !== 'archived' && (
                             <button 
-                              onClick={() => handleDeleteManual(manual)}
-                              className="p-1 text-gray-400 hover:text-red-500" 
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          ) : (
-                            <button 
-                              onClick={() => handleRestoreManual(manual)}
+                              onClick={() => handlePreviewManual(manual)}
                               className="p-1 text-gray-400 hover:text-blue-500" 
-                              title="Restore"
+                              title="Preview"
                             >
-                              <RefreshCw className="w-4 h-4" />
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          )}
+                          {activeTab === 'manuals' && (
+                            <>
+                              <button 
+                                onClick={() => handleDownloadExcel(manual)}
+                                className="p-1 text-gray-400 hover:text-green-500" 
+                                title="Excel"
+                              >
+                                <Download className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleEditManual(manual)}
+                                className="p-1 text-gray-400 hover:text-orange-500" 
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteManual(manual)}
+                                className="p-1 text-gray-400 hover:text-red-500" 
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          {activeTab === 'trash' && (
+                            <>
+                              <button 
+                                onClick={() => handleRestoreManual(manual)}
+                                className="p-1 text-gray-400 hover:text-blue-500" 
+                                title="Restore"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleHardDelete(manual)}
+                                className="p-1 text-gray-400 hover:text-red-700 bg-red-50 rounded" 
+                                title="Hard Delete"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </button>
+                            </>
+                          )}
+                          {activeTab === 'archived' && (
+                            <button 
+                              onClick={() => handleMasterRestore(manual)}
+                              className="p-1 text-gray-400 hover:text-purple-500" 
+                              title="Restore to Trash"
+                            >
+                              <History className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -1560,10 +1601,12 @@ export default function TemplatesPage() {
                 })}
                 {getGroupManuals().length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={activeTab === 'trash' ? 8 : 7} className="px-4 py-8 text-center text-gray-500">
                       {activeTab === 'manuals' 
                         ? '저장된 매뉴얼이 없습니다. Manual Editor에서 새 매뉴얼을 작성하세요.'
-                        : '휴지통이 비어있습니다.'}
+                        : activeTab === 'trash'
+                        ? '휴지통이 비어있습니다.'
+                        : '완전 삭제된 매뉴얼이 없습니다.'}
                     </td>
                   </tr>
                 )}

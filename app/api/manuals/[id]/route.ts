@@ -64,7 +64,7 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { name, koreanName, imageUrl, shelfLife, yield: yieldValue, yieldUnit, notes, isActive, ingredients, sellingPrice, cookingMethod, templateId } = body;
+    const { name, koreanName, imageUrl, shelfLife, yield: yieldValue, yieldUnit, notes, isActive, isArchived, ingredients, sellingPrice, cookingMethod, templateId } = body;
 
     // If templateId is provided, find or create the corresponding group
     let groupId = undefined;
@@ -96,7 +96,7 @@ export async function PUT(
     }
 
     // Update manual and optionally replace ingredients
-    const manual = await prisma.menuManual.update({
+    await prisma.menuManual.update({
       where: { id },
       data: {
         name,
@@ -107,6 +107,7 @@ export async function PUT(
         yieldUnit,
         notes,
         isActive,
+        isArchived, // For Hard Delete (Hidden) or Restore
         sellingPrice: sellingPrice !== undefined ? sellingPrice : undefined,
         cookingMethod: cookingMethod ? JSON.stringify(cookingMethod) : undefined,
         groupId: groupId !== undefined ? groupId : undefined
@@ -136,22 +137,105 @@ export async function PUT(
       });
     }
 
+    // Recalculate cost if templateId or ingredients changed
+    if (templateId || ingredients) {
+      const currentManual = await prisma.menuManual.findUnique({
+        where: { id },
+        include: { ingredients: true }
+      });
+
+      let targetTemplateId = templateId;
+      if (!targetTemplateId) {
+        const costVersion = await prisma.manualCostVersion.findFirst({
+          where: { manualId: id, isActive: true }
+        });
+        if (costVersion) targetTemplateId = costVersion.templateId;
+      }
+
+      if (targetTemplateId && currentManual) {
+        const template = await prisma.ingredientTemplate.findUnique({
+          where: { id: targetTemplateId },
+          include: { items: true }
+        });
+
+        if (template) {
+          const priceMap = new Map();
+          for (const item of template.items) {
+            priceMap.set(item.ingredientId, {
+              price: item.price,
+              currency: item.currency,
+              yieldRate: item.yieldRate ?? 100
+            });
+          }
+
+          let totalCost = 0;
+          const costLines: any[] = [];
+
+          for (const ing of currentManual.ingredients) {
+            let unitPrice = 0;
+            let yieldRate = 100;
+            if (ing.ingredientId && priceMap.has(ing.ingredientId)) {
+              const priceInfo = priceMap.get(ing.ingredientId);
+              unitPrice = priceInfo.price;
+              yieldRate = priceInfo.yieldRate;
+            }
+            const lineCost = unitPrice * ing.quantity * (100 / yieldRate);
+            totalCost += lineCost;
+            costLines.push({
+              ingredientId: ing.id,
+              unitPrice,
+              quantity: ing.quantity,
+              unit: ing.unit,
+              yieldRate,
+              lineCost
+            });
+          }
+
+          const existingVersion = await prisma.manualCostVersion.findUnique({
+            where: { manualId_templateId: { manualId: id, templateId: targetTemplateId } }
+          });
+
+          if (existingVersion) {
+            await prisma.manualCostLine.deleteMany({ where: { costVersionId: existingVersion.id } });
+            await prisma.manualCostVersion.update({
+              where: { id: existingVersion.id },
+              data: {
+                totalCost,
+                costPerUnit: currentManual.yield ? totalCost / currentManual.yield : null,
+                calculatedAt: new Date(),
+                costLines: { create: costLines }
+              }
+            });
+          } else {
+            await prisma.manualCostVersion.create({
+              data: {
+                manualId: id,
+                templateId: targetTemplateId,
+                name: `${template.name} Cost`,
+                totalCost,
+                currency: template.country === 'CA' ? 'CAD' : 'USD',
+                costPerUnit: currentManual.yield ? totalCost / currentManual.yield : null,
+                calculatedAt: new Date(),
+                costLines: { create: costLines }
+              }
+            });
+          }
+        }
+      }
+    }
+
     // Fetch updated manual
     const updatedManual = await prisma.menuManual.findUnique({
       where: { id },
       include: {
-        group: {
-          select: {
-            id: true,
-            name: true,
-            templateId: true
-          }
-        },
+        group: { select: { id: true, name: true, templateId: true } },
         ingredients: {
           orderBy: { sortOrder: 'asc' },
-          include: {
-            ingredientMaster: true
-          }
+          include: { ingredientMaster: true }
+        },
+        costVersions: {
+          include: { template: true },
+          orderBy: { createdAt: 'desc' }
         }
       }
     });
@@ -174,12 +258,17 @@ export async function DELETE(
   }
 
   const { id } = await params;
+  const user = session.user as { id: string; email: string };
 
   try {
-    // Soft delete: set isActive to false
+    // Soft delete: set isActive to false and record who/when
     await prisma.menuManual.update({
       where: { id },
-      data: { isActive: false }
+      data: { 
+        isActive: false,
+        deletedAt: new Date(),
+        deletedBy: user.email || 'Unknown'
+      }
     });
 
     return NextResponse.json({ success: true });
