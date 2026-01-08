@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-// GET - List all menu manuals
+// GET - List all menu manuals (Force redeploy)
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
