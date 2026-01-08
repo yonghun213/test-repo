@@ -3,6 +3,40 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const countriesOnly = searchParams.get('countriesOnly') === 'true';
+
+  try {
+    if (countriesOnly) {
+      const countries = await prisma.country.findMany({
+        orderBy: { name: 'asc' }
+      });
+      return NextResponse.json(countries);
+    }
+
+    const stores = await prisma.store.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        tasks: {
+          select: { status: true }
+        }
+      }
+    });
+    return NextResponse.json(stores);
+  } catch (error) {
+    console.error('Error fetching stores:', error);
+    return NextResponse.json({ error: 'Failed to fetch stores' }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
