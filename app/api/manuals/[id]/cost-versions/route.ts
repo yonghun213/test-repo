@@ -194,6 +194,8 @@ export async function POST(
           currency: template.items[0]?.currency || 'CAD',
           costPerUnit,
           calculatedAt: new Date(),
+          isActive: true,
+          updatedAt: new Date(),
           costLines: {
             create: costLines
           }
@@ -221,6 +223,9 @@ export async function POST(
           currency: template.items[0]?.currency || 'CAD',
           costPerUnit,
           calculatedAt: new Date(),
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
           costLines: {
             create: costLines
           }
