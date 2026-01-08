@@ -56,6 +56,9 @@ const newTableStatements = [
     "createdAt" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY ("templateItemId") REFERENCES "IngredientTemplateItem" ("id") ON DELETE CASCADE
   )`,
+
+  // ManualCostVersion 테이블에 name 컬럼 추가
+  `ALTER TABLE "ManualCostVersion" ADD COLUMN "name" TEXT DEFAULT 'Cost Version'`,
 ];
 
 async function updateSchema() {

@@ -281,13 +281,13 @@ export default function StoreDetailTabs({
                 </button>
               </div>
 
-              {/* Interactive Blue Panel */}
-              <div className="bg-blue-600 rounded-xl shadow-lg p-6 min-h-[400px]">
+              {/* Interactive Panel */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 min-h-[400px]">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2 text-white">
-                    {activePanel === 'tasks' && <CheckSquare className="w-5 h-5" />}
-                    {activePanel === 'files' && <FileText className="w-5 h-5" />}
-                    {activePanel === 'gallery' && <Flag className="w-5 h-5" />}
+                  <div className="flex items-center gap-2 text-gray-900">
+                    {activePanel === 'tasks' && <CheckSquare className="w-5 h-5 text-orange-500" />}
+                    {activePanel === 'files' && <FileText className="w-5 h-5 text-blue-500" />}
+                    {activePanel === 'gallery' && <Flag className="w-5 h-5 text-green-500" />}
                     <h3 className="text-lg font-bold">
                       {activePanel === 'tasks' && `Recent Tasks (${tasks.length})`}
                       {activePanel === 'files' && `Files (${store.files?.length || 0})`}
@@ -297,7 +297,7 @@ export default function StoreDetailTabs({
                   {activePanel === 'tasks' && (
                     <button 
                       onClick={() => setIsCreateModalOpen(true)}
-                      className="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded transition-colors"
+                      className="text-xs bg-orange-50 hover:bg-orange-100 text-orange-600 px-3 py-1.5 rounded transition-colors font-medium"
                     >
                       + Add Task
                     </button>
@@ -308,7 +308,7 @@ export default function StoreDetailTabs({
                   {/* Tasks List */}
                   {activePanel === 'tasks' && (
                     tasks.length === 0 ? (
-                      <div className="text-center py-10 text-white/70">
+                      <div className="text-center py-10 text-gray-500">
                         <p>No tasks found.</p>
                       </div>
                     ) : (
@@ -316,19 +316,21 @@ export default function StoreDetailTabs({
                         <div 
                           key={task.id}
                           onClick={() => handleEventClick(task)}
-                          className="bg-white/10 hover:bg-white/20 rounded-lg p-3 cursor-pointer transition-colors border border-white/10"
+                          className="bg-gray-50 hover:bg-gray-100 rounded-lg p-3 cursor-pointer transition-colors border border-gray-100"
                         >
                           <div className="flex justify-between items-start">
                             <div>
-                              <div className="font-medium text-white mb-1">{task.title}</div>
+                              <div className="font-medium text-gray-900 mb-1">{task.title}</div>
                               {task.dueDate && (
-                                <div className="text-xs text-white/70">
+                                <div className="text-xs text-gray-500">
                                   Due: {new Date(task.dueDate).toLocaleDateString()}
                                 </div>
                               )}
                             </div>
-                            <span className={`text-xs px-2 py-0.5 rounded ${
-                              task.status === 'COMPLETED' ? 'bg-green-500/20 text-green-100' : 'bg-white/20 text-white'
+                            <span className={`text-xs px-2 py-0.5 rounded border ${
+                              task.status === 'COMPLETED' 
+                                ? 'bg-green-50 border-green-100 text-green-700' 
+                                : 'bg-white border-gray-200 text-gray-600'
                             }`}>
                               {task.status.replace(/_/g, ' ')}
                             </span>
@@ -341,20 +343,20 @@ export default function StoreDetailTabs({
                   {/* Files List */}
                   {activePanel === 'files' && (
                     store.files?.length === 0 ? (
-                      <div className="text-center py-10 text-white/70">
+                      <div className="text-center py-10 text-gray-500">
                         <p>No files uploaded.</p>
                       </div>
                     ) : (
                       store.files.map((file: any) => (
                         <div 
                           key={file.id}
-                          className="bg-white/10 hover:bg-white/20 rounded-lg p-3 transition-colors border border-white/10 flex justify-between items-center"
+                          className="bg-gray-50 hover:bg-gray-100 rounded-lg p-3 transition-colors border border-gray-100 flex justify-between items-center"
                         >
                           <div className="flex items-center gap-3 overflow-hidden">
-                            <FileText className="w-8 h-8 text-white/80 flex-shrink-0" />
+                            <FileText className="w-8 h-8 text-gray-400 flex-shrink-0" />
                             <div className="min-w-0">
-                              <div className="font-medium text-white truncate">{file.fileName}</div>
-                              <div className="text-xs text-white/70">
+                              <div className="font-medium text-gray-900 truncate">{file.fileName}</div>
+                              <div className="text-xs text-gray-500">
                                 {(file.fileSize / 1024).toFixed(1)} KB • {new Date(file.createdAt).toLocaleDateString()}
                               </div>
                             </div>
@@ -362,7 +364,7 @@ export default function StoreDetailTabs({
                           <a 
                             href={file.filePath}
                             download
-                            className="p-2 hover:bg-white/10 rounded-full text-white/90 transition-colors"
+                            className="p-2 hover:bg-gray-200 rounded-full text-gray-500 transition-colors"
                             title="Download"
                           >
                             <Download className="w-5 h-5" />
@@ -375,7 +377,7 @@ export default function StoreDetailTabs({
                   {/* Gallery Grid */}
                   {activePanel === 'gallery' && (
                     galleryImages.length === 0 ? (
-                      <div className="text-center py-10 text-white/70">
+                      <div className="text-center py-10 text-gray-500">
                         <p>No images found in files.</p>
                       </div>
                     ) : (
