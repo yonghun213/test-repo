@@ -1,13 +1,15 @@
 {
-  "updatedAt": 1767825835269,
+  "updatedAt": 1767832769332,
   "running": 0,
   "queued": 0,
   "maxWorkers": 3,
   "queueLimit": 200,
   "cliStatus": {
-    "state": "missing",
-    "message": "Neither Gemini CLI Core nor CLI available [startup]",
-    "lastChecked": 1767825835002
+    "state": "ok",
+    "message": "Gemini CLI available (0.23.0)",
+    "version": "0.23.0",
+    "lastChecked": 1767832769061,
+    "mode": "cli"
   },
   "tasks": []
 }
