@@ -171,9 +171,9 @@ export default function TemplatesPage() {
     console.log('📡 Fetching data...');
     try {
       const [groupsRes, manualsRes, templatesRes] = await Promise.all([
-        fetch('/api/manual-groups?includeManuals=true&includeTemplate=true'),
-        fetch('/api/manuals?includeCostVersions=true'),
-        fetch('/api/ingredient-templates')
+        fetch('/api/manual-groups?includeManuals=true&includeTemplate=true', { cache: 'no-store' }),
+        fetch('/api/manuals?includeCostVersions=true', { cache: 'no-store' }),
+        fetch('/api/ingredient-templates', { cache: 'no-store' })
       ]);
 
       console.log('Response statuses:', {
