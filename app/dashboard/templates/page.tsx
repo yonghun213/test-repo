@@ -420,15 +420,24 @@ export default function TemplatesPage() {
         
         // Load ingredients
         if (fullManual.ingredients && fullManual.ingredients.length > 0) {
-          setIngredients(fullManual.ingredients.map((ing: any, i: number) => ({
-            no: i + 1,
-            name: ing.name || '',
-            koreanName: ing.koreanName || '',
-            weight: ing.quantity?.toString() || '',
-            unit: ing.unit || 'g',
-            purchase: ing.notes || 'Local',
-            ingredientId: ing.ingredientId
-          })));
+          // Find cost lines to get prices
+          const costVersion = fullManual.costVersions?.[0];
+          const costLines = costVersion?.costLines || [];
+
+          setIngredients(fullManual.ingredients.map((ing: any, i: number) => {
+            const costLine = costLines.find((cl: any) => cl.ingredientId === ing.id);
+            return {
+              no: i + 1,
+              name: ing.name || '',
+              koreanName: ing.koreanName || '',
+              weight: ing.quantity?.toString() || '',
+              unit: ing.unit || 'g',
+              purchase: ing.notes || 'Local',
+              ingredientId: ing.ingredientId,
+              price: costLine ? costLine.unitPrice : null, // Display unit price
+              currency: costVersion?.currency
+            };
+          }));
         } else {
           setIngredients([{ ...EMPTY_INGREDIENT }]);
         }

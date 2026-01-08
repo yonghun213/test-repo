@@ -34,8 +34,14 @@ export async function GET(
           include: {
             ingredientMaster: true
           }
+        },
+        costVersions: {
+          include: {
+            template: true,
+            costLines: true
+          },
+          orderBy: { createdAt: 'desc' }
         }
-        // costVersions temporarily disabled - table schema needs to be fixed in Turso
       }
     });
 
