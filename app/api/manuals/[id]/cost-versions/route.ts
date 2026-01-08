@@ -108,11 +108,13 @@ export async function POST(
     for (const item of template.items) {
       // Get package quantity from template item override or master
       const packageQuantity = item.quantity ?? item.ingredient.quantity ?? 1;
-      
+      let yieldRate = item.yieldRate ?? item.ingredient.yieldRate;
+      if (!yieldRate || yieldRate <= 0) yieldRate = 100; // 수율 0 이하 방지
+
       priceMap.set(item.ingredientId, {
         price: item.price,
         currency: item.currency,
-        yieldRate: item.yieldRate ?? item.ingredient.yieldRate,
+        yieldRate,
         unit: item.unit ?? item.ingredient.unit,
         packageQuantity: packageQuantity > 0 ? packageQuantity : 1 // 0으로 나누기 방지
       });
@@ -153,14 +155,15 @@ export async function POST(
         packageQuantity = priceInfo.packageQuantity;
         // 단위당 가격 = 패키지 가격 / 패키지 용량
         unitPrice = priceInfo.price / packageQuantity;
-        yieldRate = priceInfo.yieldRate;
+        yieldRate = priceInfo.yieldRate > 0 ? priceInfo.yieldRate : 100;
         // Unit conversion logic can be added here if needed
       }
 
       // Calculate line cost: 
       // (패키지가격 / 패키지용량) × 사용량 × (100 / 수율)
       // = unitPrice × ing.quantity × (100 / yieldRate)
-      const lineCost = unitPrice * ing.quantity * (100 / yieldRate);
+      const safeYieldRate = yieldRate > 0 ? yieldRate : 100;
+      const lineCost = unitPrice * ing.quantity * (100 / safeYieldRate);
       totalCost += lineCost;
 
       costLines.push({
@@ -194,8 +197,6 @@ export async function POST(
           currency: template.items[0]?.currency || 'CAD',
           costPerUnit,
           calculatedAt: new Date(),
-          isActive: true,
-          updatedAt: new Date(),
           costLines: {
             create: costLines
           }
@@ -223,9 +224,6 @@ export async function POST(
           currency: template.items[0]?.currency || 'CAD',
           costPerUnit,
           calculatedAt: new Date(),
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
           costLines: {
             create: costLines
           }
