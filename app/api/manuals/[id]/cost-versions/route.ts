@@ -69,7 +69,7 @@ export async function POST(
       include: {
         ingredients: {
           include: {
-            ingredient: true
+            ingredientMaster: true
           }
         }
       }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import StoreCard from '@/components/StoreCard';
 import StoreFilters from '@/components/StoreFilters';
@@ -22,22 +22,23 @@ interface Store {
   ownerEmail: string | null;
   ownerAddress: string | null;
   status: string;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  createdAt: Date;
+  updatedAt: Date;
   plannedOpenDates: Array<{
     id: string;
-    date: Date | string;
+    date: Date;
     reason: string | null;
   }>;
 }
-
 interface Country {
   id: string;
   name: string;
   code: string;
 }
 
-export default function StoresPage() {
+
+
+function StoresPageContent() {
   const searchParams = useSearchParams();
   const [stores, setStores] = useState<Store[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -92,11 +93,10 @@ export default function StoresPage() {
       result.sort((a, b) => {
         let aValue: any;
         let bValue: any;
-        
         switch (sortField) {
           case 'name':
-            aValue = (a.officialName || a.tempName || '').toLowerCase();
-            bValue = (b.officialName || b.tempName || '').toLowerCase();
+            aValue = a.officialName || a.tempName || '';
+            bValue = b.officialName || b.tempName || '';
             break;
           case 'country':
             aValue = a.country || '';
@@ -111,24 +111,18 @@ export default function StoresPage() {
             bValue = b.status || '';
             break;
           case 'openDate':
-            aValue = a.plannedOpenDates[0]?.date ? new Date(a.plannedOpenDates[0].date).getTime() : 0;
-            bValue = b.plannedOpenDates[0]?.date ? new Date(b.plannedOpenDates[0].date).getTime() : 0;
+            aValue = a.plannedOpenDates[0]?.date ? new Date(a.plannedOpenDates[0].date) : new Date(0);
+            bValue = b.plannedOpenDates[0]?.date ? new Date(b.plannedOpenDates[0].date) : new Date(0);
             break;
           default:
-            return 0;
+            aValue = '';
+            bValue = '';
         }
-        
-        // Compare
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return sortDirection === 'asc' 
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
-        }
-        
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
       });
     }
-    
     return result;
   }, [stores, sortField, sortDirection, viewMode]);
 
@@ -159,8 +153,9 @@ export default function StoresPage() {
     );
   }
 
-  return (
-    <div className="space-y-6">
+    return (
+      <Suspense>
+        <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Stores</h1>
@@ -240,7 +235,19 @@ export default function StoresPage() {
         </div>
       ) : viewMode === 'card' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredAndSortedStores.map((store) => <StoreCard key={store.id} store={store} />)}
+          {filteredAndSortedStores.map((store) => {
+            // Convert date strings to Date objects for StoreCard compatibility
+            const normalizedStore = {
+              ...store,
+              createdAt: typeof store.createdAt === 'string' ? new Date(store.createdAt) : store.createdAt,
+              updatedAt: typeof store.updatedAt === 'string' ? new Date(store.updatedAt) : store.updatedAt,
+              plannedOpenDates: store.plannedOpenDates?.map((pod) => ({
+                ...pod,
+                date: typeof pod.date === 'string' ? new Date(pod.date) : pod.date,
+              })) || [],
+            };
+            return <StoreCard key={store.id} store={normalizedStore} />;
+          })}
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
@@ -324,6 +331,16 @@ export default function StoresPage() {
           </div>
         </div>
       )}
-    </div>
+
+      </div>
+    </Suspense>
+  );
+}
+
+export default function StoresPage() {
+  return (
+    <Suspense>
+      <StoresPageContent />
+    </Suspense>
   );
 }

@@ -1318,7 +1318,6 @@ export default function TemplatesPage() {
               </div>
             </div>
           </div>
-          </div>
 
           {/* Manuals List */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
