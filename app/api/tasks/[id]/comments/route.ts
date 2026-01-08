@@ -67,6 +67,26 @@ export async function POST(
       }
     });
 
+    // Create notification for task assignee
+    const task = await prisma.task.findUnique({
+      where: { id },
+      select: { assigneeId: true, title: true, store: { select: { tempName: true, officialName: true } } }
+    });
+
+    if (task && task.assigneeId && task.assigneeId !== user.id) {
+      const storeName = task.store.officialName || task.store.tempName || 'Store';
+      await prisma.notification.create({
+        data: {
+          userId: task.assigneeId,
+          type: 'TASK_COMMENT',
+          title: 'New Comment on Task',
+          message: `${comment.user.name || 'Someone'} commented on "${task.title}" in ${storeName}`,
+          payload: JSON.stringify({ taskId: id, commentId: comment.id, storeName }),
+          isRead: false
+        }
+      });
+    }
+
     return NextResponse.json(comment);
   } catch (e) {
     console.error(e);

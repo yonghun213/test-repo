@@ -31,9 +31,13 @@ export async function GET(request: NextRequest) {
           include: {
             ingredientMaster: true
           }
+        } : false,
+        costVersions: includeCostVersions ? {
+          include: {
+            template: true
+          },
+          orderBy: { createdAt: 'desc' }
         } : false
-        // costVersions temporarily disabled - table schema needs to be fixed in Turso
-        // costVersions: includeCostVersions ? {...} : false
       },
       orderBy: { name: 'asc' }
     });
