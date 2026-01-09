@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const userEmail = (session.user as { email?: string } | undefined)?.email;
+  const isMaster = userEmail === 'kun.lee@bbqchickenca.com';
+
   const { searchParams } = new URL(request.url);
   const includeIngredients = searchParams.get('includeIngredients') === 'true';
   const includeCostVersions = searchParams.get('includeCostVersions') === 'true';
@@ -22,7 +25,10 @@ export async function GET(request: NextRequest) {
     console.log('Query params:', { groupId, includeIngredients, includeCostVersions });
     
     const manuals = await prisma.menuManual.findMany({
-      where: groupId ? { groupId } : undefined,
+      where: {
+        ...(groupId ? { groupId } : {}),
+        ...(isMaster ? {} : { isArchived: false })
+      },
       include: {
         group: true,
         ingredients: includeIngredients ? {

@@ -13,6 +13,9 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const userEmail = (session.user as { email?: string } | undefined)?.email;
+  const isMaster = userEmail === 'kun.lee@bbqchickenca.com';
+
   const { id } = await params;
 
   try {
@@ -49,6 +52,10 @@ export async function GET(
       return NextResponse.json({ error: 'Manual not found' }, { status: 404 });
     }
 
+    if (!isMaster && (manual as any).isArchived) {
+      return NextResponse.json({ error: 'Manual not found' }, { status: 404 });
+    }
+
     return NextResponse.json(manual);
   } catch (error) {
     console.error('Error fetching manual:', error);
@@ -66,11 +73,31 @@ export async function PUT(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const userEmail = (session.user as { email?: string } | undefined)?.email;
+  const isMaster = userEmail === 'kun.lee@bbqchickenca.com';
+
   const { id } = await params;
 
   try {
     const body = await request.json();
     const { name, koreanName, imageUrl, shelfLife, yield: yieldValue, yieldUnit, notes, isActive, isArchived, ingredients, sellingPrice, cookingMethod, templateId } = body;
+
+    const current = await prisma.menuManual.findUnique({
+      where: { id },
+      select: { id: true, isArchived: true }
+    });
+
+    if (!current) {
+      return NextResponse.json({ error: 'Manual not found' }, { status: 404 });
+    }
+
+    if (!isMaster && current.isArchived) {
+      return NextResponse.json({ error: 'Manual not found' }, { status: 404 });
+    }
+
+    if (!isMaster && isArchived === true) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // If templateId is provided, find or create the corresponding group
     let groupId = undefined;
@@ -170,7 +197,7 @@ export async function PUT(
             priceMap.set(item.ingredientId, {
               price: item.price,
               currency: item.currency,
-              yieldRate: item.yieldRate ?? 100
+              yieldRate: !item.yieldRate || item.yieldRate <= 0 ? 100 : item.yieldRate
             });
           }
 
@@ -183,9 +210,10 @@ export async function PUT(
             if (ing.ingredientId && priceMap.has(ing.ingredientId)) {
               const priceInfo = priceMap.get(ing.ingredientId);
               unitPrice = priceInfo.price;
-              yieldRate = priceInfo.yieldRate;
+              yieldRate = priceInfo.yieldRate > 0 ? priceInfo.yieldRate : 100;
             }
-            const lineCost = unitPrice * ing.quantity * (100 / yieldRate);
+            const safeYieldRate = yieldRate > 0 ? yieldRate : 100;
+            const lineCost = unitPrice * ing.quantity * (100 / safeYieldRate);
             totalCost += lineCost;
             costLines.push({
               ingredientId: ing.id,
@@ -247,9 +275,17 @@ export async function PUT(
     });
 
     return NextResponse.json(updatedManual);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating manual:', error);
-    return NextResponse.json({ error: 'Failed to update manual' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to update manual',
+        details: error?.message,
+        code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 5).join('\n')
+      },
+      { status: 500 }
+    );
   }
 }
 

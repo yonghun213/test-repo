@@ -18,22 +18,15 @@ export async function GET(
   try {
     const costVersions = await prisma.manualCostVersion.findMany({
       where: { manualId },
-      select: {
-        id: true,
-        manualId: true,
-        templateId: true,
-        description: true,
-        totalCost: true,
-        currency: true,
-        costPerUnit: true,
-        isActive: true,
-        calculatedAt: true,
-        createdAt: true,
-        updatedAt: true,
+      include: {
         template: true,
         costLines: {
           include: {
-            ingredient: true
+            ingredient: {
+              include: {
+                ingredientMaster: true
+              }
+            }
           }
         }
       },
@@ -41,9 +34,17 @@ export async function GET(
     });
 
     return NextResponse.json(costVersions);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching cost versions:', error);
-    return NextResponse.json({ error: 'Failed to fetch cost versions' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch cost versions',
+        details: error?.message,
+        code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 5).join('\n')
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -62,6 +63,10 @@ export async function POST(
   try {
     const body = await request.json();
     const { templateId, name, description } = body;
+
+    if (!templateId) {
+      return NextResponse.json({ error: 'Missing templateId' }, { status: 400 });
+    }
 
     // Fetch manual with ingredients
     const manual = await prisma.menuManual.findUnique({
@@ -106,16 +111,18 @@ export async function POST(
     }>();
     
     for (const item of template.items) {
+      const ingredient = (item as any).ingredient;
+
       // Get package quantity from template item override or master
-      const packageQuantity = item.quantity ?? item.ingredient.quantity ?? 1;
-      let yieldRate = item.yieldRate ?? item.ingredient.yieldRate;
+      const packageQuantity = item.quantity ?? ingredient?.quantity ?? 1;
+      let yieldRate = item.yieldRate ?? ingredient?.yieldRate;
       if (!yieldRate || yieldRate <= 0) yieldRate = 100; // 수율 0 이하 방지
 
       priceMap.set(item.ingredientId, {
         price: item.price,
         currency: item.currency,
         yieldRate,
-        unit: item.unit ?? item.ingredient.unit,
+        unit: item.unit ?? ingredient?.unit ?? 'g',
         packageQuantity: packageQuantity > 0 ? packageQuantity : 1 // 0으로 나누기 방지
       });
     }
@@ -240,8 +247,16 @@ export async function POST(
 
       return NextResponse.json(newVersion, { status: 201 });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating cost version:', error);
-    return NextResponse.json({ error: 'Failed to create cost version' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to create cost version',
+        details: error?.message,
+        code: error?.code,
+        stack: error?.stack?.split('\n').slice(0, 5).join('\n')
+      },
+      { status: 500 }
+    );
   }
 }

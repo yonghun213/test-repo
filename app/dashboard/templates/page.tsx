@@ -689,9 +689,13 @@ export default function TemplatesPage() {
     setIsSaving(true);
     try {
       // Convert image to base64 if a new file is selected
-      let imageUrl = menuImageUrl;
+      let imageUrl: string | undefined;
       if (menuImage) {
         imageUrl = await fileToBase64(menuImage);
+      } else if (!editingManualId) {
+        imageUrl = menuImageUrl || undefined;
+      } else if (menuImageUrl && !menuImageUrl.startsWith('data:')) {
+        imageUrl = menuImageUrl;
       }
 
       const payload = {
@@ -744,11 +748,22 @@ export default function TemplatesPage() {
         
         // If template is selected, apply it
         if (editorTemplateId && savedManual.id) {
-          await fetch(`/api/manuals/${savedManual.id}/cost-versions`, {
+          const applyRes = await fetch(`/api/manuals/${savedManual.id}/cost-versions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ templateId: editorTemplateId })
           });
+
+          if (!applyRes.ok) {
+            let errorText = '';
+            try {
+              const err = await applyRes.json();
+              errorText = err?.details || err?.error || JSON.stringify(err);
+            } catch {
+              errorText = await applyRes.text().catch(() => '');
+            }
+            alert(`가격 템플릿 적용 실패\n상태 코드: ${applyRes.status}\n${errorText}`);
+          }
         }
         
         alert(editingManualId ? '매뉴얼이 수정되었습니다!' : '매뉴얼이 저장되었습니다!');
@@ -843,16 +858,40 @@ export default function TemplatesPage() {
 
     try {
       // Apply template to each selected manual
-      const promises = Array.from(selectedManualIds).map(manualId =>
-        fetch(`/api/manuals/${manualId}/cost-versions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ templateId: selectedTemplateId })
+      const results = await Promise.all(
+        Array.from(selectedManualIds).map(async (manualId) => {
+          const res = await fetch(`/api/manuals/${manualId}/cost-versions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ templateId: selectedTemplateId })
+          });
+
+          if (res.ok) return { manualId, ok: true as const };
+
+          let details = '';
+          try {
+            const err = await res.json();
+            details = err?.details || err?.error || JSON.stringify(err);
+          } catch {
+            details = await res.text().catch(() => '');
+          }
+          return { manualId, ok: false as const, status: res.status, details };
         })
       );
 
-      await Promise.all(promises);
-      alert(`${selectedManualIds.size}개 매뉴얼에 가격 템플릿이 적용되었습니다.`);
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length > 0) {
+        alert(
+          `가격 템플릿 적용 실패: ${failed.length}건\n\n` +
+            failed
+              .slice(0, 3)
+              .map((f) => `${f.manualId}: ${f.status}\n${f.details || ''}`.trim())
+              .join('\n\n')
+        );
+      } else {
+        alert(`${selectedManualIds.size}개 매뉴얼에 가격 템플릿이 적용되었습니다.`);
+      }
+
       setSelectedManualIds(new Set());
       setSelectedTemplateId('');
       fetchData();
