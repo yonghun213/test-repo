@@ -7,10 +7,10 @@ import { FileText, Download, Plus, Trash2, Eye, Save, RefreshCw, Settings, Table
 // 타입 정의
 interface IngredientSuggestion {
   id: string;
-  koreanName: string;
-  englishName: string;
+  name: string;      // 영문명 (Turso schema)
+  nameKo: string;    // 한글명 (Turso schema)
   category: string;
-  unit: string;
+  baseUnit: string;  // Turso schema
   yieldRate: number;
   price?: number | null;
   currency?: string | null;
@@ -76,7 +76,7 @@ interface CostVersion {
 interface PriceTemplate {
   id: string;
   name: string;
-  country?: string;
+  countryId?: string;
 }
 
 const DEFAULT_COOKING_PROCESSES = [
@@ -306,9 +306,9 @@ export default function TemplatesPage() {
     const newIngredients = [...ingredients];
     newIngredients[index] = {
       ...newIngredients[index],
-      name: suggestion.englishName,
-      koreanName: suggestion.koreanName,
-      unit: suggestion.unit,
+      name: suggestion.name,
+      koreanName: suggestion.nameKo || suggestion.name,
+      unit: suggestion.baseUnit,
       ingredientId: suggestion.id,
       price: suggestion.price,
       currency: suggestion.currency
@@ -1199,7 +1199,7 @@ export default function TemplatesPage() {
                 >
                   <option value="">템플릿 선택...</option>
                   {priceTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.country || 'N/A'})</option>
+                    <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
               </div>
@@ -1290,7 +1290,7 @@ export default function TemplatesPage() {
                                     onClick={() => selectIngredient(i, sugg)}
                                   >
                                     <div className="flex justify-between items-center">
-                                      <span>{sugg.koreanName} → {sugg.englishName}</span>
+                                      <span>{sugg.nameKo || sugg.name} → {sugg.name}</span>
                                       <div className="flex items-center gap-2">
                                         {sugg.price ? (
                                           <span className="text-green-600 font-medium">${sugg.price.toFixed(2)}</span>
@@ -1431,7 +1431,7 @@ export default function TemplatesPage() {
                     <option value="">전체 매뉴얼</option>
                     {getAppliedTemplates().map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.name} ({t.country || 'N/A'}) - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
+                        {t.name} - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
                       </option>
                     ))}
                     <option value="__none__">미적용 (가격 없음)</option>
@@ -1468,7 +1468,7 @@ export default function TemplatesPage() {
                       >
                         <option value="">가격 템플릿 선택...</option>
                         {priceTemplates.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name} ({t.country || 'N/A'})</option>
+                          <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                       </select>
                       <button
@@ -1564,7 +1564,7 @@ export default function TemplatesPage() {
                       <td className="px-4 py-3 text-center">
                         {appliedTemplate ? (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {appliedTemplate.country || appliedTemplate.name}
+                            {appliedTemplate.name}
                           </span>
                         ) : (
                           <span className="text-gray-400 text-sm">미적용</span>
@@ -1711,7 +1711,7 @@ export default function TemplatesPage() {
                   <option value="">전체 보기 (모든 국가)</option>
                   {getAppliedTemplates().map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} ({t.country || 'N/A'}) - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
+                      {t.name} - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
                     </option>
                   ))}
                 </select>
@@ -1760,7 +1760,7 @@ export default function TemplatesPage() {
                         <td className="px-4 py-3 text-center">
                           {appliedTemplate ? (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {appliedTemplate.country || appliedTemplate.name}
+                              {appliedTemplate.name}
                             </span>
                           ) : (
                             <span className="text-gray-400 text-sm">-</span>
