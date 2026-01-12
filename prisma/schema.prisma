@@ -4,6 +4,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
+  binaryTargets   = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -365,8 +366,9 @@ model IngredientMaster {
   yieldRate   Float                    @default(100) // 수율 (%)
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
-  templateItems IngredientTemplateItem[]
-  manualIngredients ManualIngredient[]
+  templateItems IngredientTemplateItem[] @relation("MasterToTemplateItem")
+  manualIngredients ManualIngredient[]   @relation("MasterToManualIngredient")
+  inventoryItems    InventoryItem[]    @relation("IngredientToInventory")
 }
 
 // 식재료 템플릿 (국가별/매장별 버전)
@@ -401,7 +403,7 @@ model IngredientTemplateItem {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   template        IngredientTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  ingredient      IngredientMaster   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  ingredient      IngredientMaster   @relation("MasterToTemplateItem", fields: [ingredientId], references: [id], onDelete: Cascade)
   priceHistory    PriceHistory[]
 
   @@unique([templateId, ingredientId])
@@ -447,6 +449,7 @@ model MenuManual {
   group           ManualGroup?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
   ingredients     ManualIngredient[]
   costVersions    ManualCostVersion[]
+  posMenuLinks    PosMenuLink[]      @relation("ManualToPosLink")
 }
 
 // 매뉴얼 재료 (레시피 구성 재료)
@@ -464,7 +467,7 @@ model ManualIngredient {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   manual          MenuManual         @relation(fields: [manualId], references: [id], onDelete: Cascade)
-  ingredientMaster IngredientMaster? @relation(fields: [ingredientId], references: [id], onDelete: SetNull)
+  ingredientMaster IngredientMaster? @relation("MasterToManualIngredient", fields: [ingredientId], references: [id], onDelete: SetNull)
   costLines       ManualCostLine[]
 }
 
@@ -504,4 +507,88 @@ model ManualCostLine {
   updatedAt       DateTime           @updatedAt
   costVersion     ManualCostVersion  @relation(fields: [costVersionId], references: [id], onDelete: Cascade)
   ingredient      ManualIngredient   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+}
+
+// ========================================
+// 주간 재고 관리 (Inventory Management)
+// ========================================
+
+// 1. 재고 관리를 묶는 '그룹' 모델 (국가, 매장 등 유연한 관리)
+model InventoryGroup {
+  id           String            @id @default(cuid())
+  name         String            @unique // "PURI점", "인도네시아 전체", "캐나다 서부" 등
+  periods      InventoryPeriod[]
+  posMenuLinks PosMenuLink[]     @relation("GroupToPosLink")
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+// 2. 재고 조사의 기준이 되는 '조사 기간' 모델
+model InventoryPeriod {
+  id        String          @id @default(cuid())
+  groupId   String
+  group     InventoryGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  startDate DateTime
+  endDate   DateTime
+  status    String // "ONGOING", "COMPLETED"
+  notes     String?
+  items     InventoryItem[]
+  sales     PeriodSales[]   @relation("PeriodToSales")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+// 3. 각 식재료의 '재고 항목' 모델
+model InventoryItem {
+  id                 String           @id @default(cuid())
+  inventoryPeriodId  String
+  inventoryPeriod    InventoryPeriod  @relation(fields: [inventoryPeriodId], references: [id], onDelete: Cascade)
+  ingredientMasterId String
+  ingredientMaster   IngredientMaster @relation("IngredientToInventory", fields: [ingredientMasterId], references: [id], onDelete: Cascade)
+  openingStock       Float // 이전 재고에서 자동 이관 (수정 가능)
+  stockIn            Float            @default(0) // 기간 내 입고량 (사용자 입력)
+  wastage            Float            @default(0) // 폐기량 (사용자 입력)
+  actualClosingStock Float // 실사 마감 재고 (사용자 입력)
+
+  // -- 시스템이 자동 계산 --
+  totalUsage       Float? // 총 소모량 (opening + stockIn - wastage - actualClosing)
+  theoreticalUsage Float? // 판매량 기반 이론적 소모량
+  variance         Float? // 차이 (totalUsage - theoreticalUsage)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([inventoryPeriodId, ingredientMasterId])
+}
+
+// 4. POS 메뉴와 내부 레시피를 '연결'하는 모델 (최초 1회 설정)
+model PosMenuLink {
+  id           String @id @default(cuid())
+  groupId      String // 어떤 그룹(매장)에서 사용하는 링크인지
+  posMenuName  String // POS에 등록된 메뉴 이름 (예: "Spicy Chicken Combo")
+  menuManualId String // 시스템의 레시피 ID
+
+  group      InventoryGroup @relation("GroupToPosLink", fields: [groupId], references: [id], onDelete: Cascade)
+  menuManual MenuManual     @relation("ManualToPosLink", fields: [menuManualId], references: [id], onDelete: Cascade)
+  sales      PeriodSales[]  @relation("LinkToSales")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([groupId, posMenuName])
+}
+
+// 5. 기간별 '메뉴 판매량' 기록 모델 (사용자가 직접 입력)
+model PeriodSales {
+  id                String          @id @default(cuid())
+  inventoryPeriodId String
+  inventoryPeriod   InventoryPeriod @relation("PeriodToSales", fields: [inventoryPeriodId], references: [id], onDelete: Cascade)
+  posMenuLinkId     String
+  posMenuLink       PosMenuLink     @relation("LinkToSales", fields: [posMenuLinkId], references: [id], onDelete: Cascade)
+  quantitySold      Int // 사용자가 입력하는 POS 판매량
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([inventoryPeriodId, posMenuLinkId])
 }
