@@ -15,6 +15,8 @@ interface InventoryItem {
     koreanName: string;
     englishName: string;
     unit: string;
+    // category 필드가 API에서 올 수도 있으므로 옵셔널로 추가
+    category?: string;
   };
   openingStock: number;
   stockIn: number;
@@ -40,6 +42,7 @@ interface PosSaleItem {
 }
 
 export default function InventoryDetailPage({ params }: { params: Promise<{ periodId: string }> }) {
+  // Next.js 15+ / React 19 호환: use() 훅으로 Promise 언래핑
   const { periodId } = use(params);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'inventory' | 'sales'>('inventory');
@@ -63,11 +66,13 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ peri
   const fetchInventoryData = async () => {
     try {
       const res = await fetch(`/api/inventory/periods/${periodId}`);
+      if (!res.ok) throw new Error('Failed to load period data');
       const data = await res.json();
       setPeriod(data);
       setItems(data.items);
     } catch (error) {
       console.error(error);
+      toast.error('Failed to load inventory data');
     } finally {
       setIsLoading(false);
     }
@@ -76,8 +81,10 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ peri
   const fetchSalesData = async () => {
     try {
       const res = await fetch(`/api/inventory/periods/${periodId}/sales`);
-      const data = await res.json();
-      setSales(data);
+      if (res.ok) {
+        const data = await res.json();
+        setSales(data);
+      }
     } catch (error) {
       console.error(error);
     }
@@ -123,18 +130,22 @@ export default function InventoryDetailPage({ params }: { params: Promise<{ peri
           actualClosingStock: item.actualClosingStock
         }));
         
-        await fetch('/api/inventory/items/batch-update', {
+        const res = await fetch('/api/inventory/items/batch-update', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ items: payload }),
         });
+        
+        if (!res.ok) throw new Error('Failed to save inventory');
         toast.success('Inventory saved');
       } else {
-        await fetch(`/api/inventory/periods/${periodId}/sales`, {
+        const res = await fetch(`/api/inventory/periods/${periodId}/sales`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sales }),
         });
+        
+        if (!res.ok) throw new Error('Failed to save sales');
         toast.success('Sales saved & Analysis updated');
         // 판매량 저장 후 분석 결과가 바뀌므로 재고 데이터 새로고침
         fetchInventoryData(); 
