@@ -14,6 +14,8 @@ import {
   Menu,
   X,
   Building2,
+  Package,
+  User,
 } from 'lucide-react';
 import { useState } from 'react';
 import NotificationBell from '@/components/NotificationBell';
@@ -24,6 +26,7 @@ const navigation = [
   { name: 'Stores', href: '/dashboard/stores', icon: Store },
   { name: 'Templates', href: '/dashboard/templates', icon: FileText },
   { name: 'Pricing', href: '/dashboard/pricing', icon: DollarSign },
+  { name: 'Inventory', href: '/dashboard/inventory', icon: Package },
   { name: 'Vendors', href: '/dashboard/vendors', icon: Building2 },
   { name: 'Admin', href: '/dashboard/admin', icon: Settings },
 ];
@@ -95,6 +98,13 @@ export default function DashboardLayout({
                 {(session?.user as any)?.role}
               </span>
             </div>
+            <Link
+              href="/dashboard/profile"
+              className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors mb-1"
+            >
+              <User className="w-5 h-5 mr-3" />
+              My Profile
+            </Link>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
               className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"

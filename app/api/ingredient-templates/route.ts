@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
           },
           orderBy: [
             { ingredient: { category: 'asc' } },
-            { ingredient: { koreanName: 'asc' } }
+            { ingredient: { name: 'asc' } }
           ]
         }
       } : undefined
@@ -45,19 +45,30 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, country, description, storeIds, currency } = body;
+    const { name, countryId, description, currency } = body;
 
     if (!name) {
       return NextResponse.json({ error: 'Template name is required' }, { status: 400 });
+    }
+
+    // Get or create a default country if not provided
+    let targetCountryId = countryId;
+    if (!targetCountryId) {
+      // Try to find existing Canada country
+      const defaultCountry = await prisma.country.findFirst({ where: { code: 'CA' } });
+      if (defaultCountry) {
+        targetCountryId = defaultCountry.id;
+      } else {
+        return NextResponse.json({ error: 'Country ID is required' }, { status: 400 });
+      }
     }
 
     // Create the template
     const template = await prisma.ingredientTemplate.create({
       data: {
         name,
-        country: country || null,
+        countryId: targetCountryId,
         description: description || null,
-        storeIds: storeIds ? storeIds.join(',') : null,
         isActive: true
       }
     });
@@ -65,8 +76,7 @@ export async function POST(request: NextRequest) {
     // Get all master ingredients and create template items
     const ingredients = await prisma.ingredientMaster.findMany();
     
-    const defaultCurrency = currency || 
-      (country === 'MX' ? 'MXN' : country === 'CO' ? 'COP' : 'CAD');
+    const defaultCurrency = currency || 'CAD';
 
     for (const ing of ingredients) {
       await prisma.ingredientTemplateItem.create({

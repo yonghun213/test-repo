@@ -354,28 +354,29 @@ model Setting {
   value String
 }
 
-// 식재료 마스터 데이터
+// 식재료 마스터 데이터 (Turso 스키마와 동기화)
 model IngredientMaster {
   id          String                   @id @default(cuid())
+  name        String                   // 영문명
+  nameKo      String?                  // 한글명
+  kind        String                   @default("RAW") // RAW, PRODUCED
   category    String                   // Oil, Raw chicken, Sauce, Powder, Dry goods, Food, Produced
-  koreanName  String
-  englishName String
-  quantity    Float                    @default(0)
-  unit        String                   // ml, g, ea, pcs
+  baseUnit    String                   @default("g") // ml, g, ea, pcs
   yieldRate   Float                    @default(100) // 수율 (%)
+  description String?
+  isActive    Boolean                  @default(true)
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
   templateItems IngredientTemplateItem[]
   manualIngredients ManualIngredient[]
 }
 
-// 식재료 템플릿 (국가별/매장별 버전)
+// 식재료 템플릿 (국가별/매장별 버전) - Turso 스키마와 동기화
 model IngredientTemplate {
   id          String                   @id @default(cuid())
   name        String                   // 템플릿 이름 (예: Mexico, Canada, Colombia)
-  country     String?                  // 국가 코드
+  countryId   String                   // Country 테이블 참조
   description String?
-  storeIds    String?                  // 적용 매장 ID들 (comma separated)
   isActive    Boolean                  @default(true)
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
@@ -384,25 +385,23 @@ model IngredientTemplate {
   manualGroups ManualGroup[]
 }
 
-// 템플릿별 식재료 상세 (가격, 수량 등 오버라이드)
+// 템플릿별 식재료 상세 (가격, 수량 등 오버라이드) - Turso 스키마와 동기화
 model IngredientTemplateItem {
-  id              String             @id @default(cuid())
-  templateId      String
-  ingredientId    String
-  category        String?            // 오버라이드 카테고리
-  koreanName      String?            // 오버라이드 한글명
-  englishName     String?            // 오버라이드 영문명
-  quantity        Float?             // 오버라이드 수량
-  unit            String?            // 오버라이드 단위
-  yieldRate       Float?             // 오버라이드 수율
-  price           Float              @default(0) // 해당 템플릿(국가)의 가격
-  currency        String             @default("CAD") // 화폐 단위
-  notes           String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  template        IngredientTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  ingredient      IngredientMaster   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  priceHistory    PriceHistory[]
+  id                 String             @id @default(cuid())
+  templateId         String
+  ingredientId       String
+  price              Float              @default(0) // 해당 템플릿(국가)의 가격
+  currency           String             @default("CAD") // 화폐 단위
+  packageSize        Float?             // 패키지 크기
+  packageUnit        String?            // 패키지 단위
+  normalizedUnitCost Float?             // 정규화된 단가
+  isActive           Boolean            @default(true)
+  yieldRate          Float?             // 오버라이드 수율
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  template           IngredientTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  ingredient         IngredientMaster   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  priceHistory       PriceHistory[]
 
   @@unique([templateId, ingredientId])
 }

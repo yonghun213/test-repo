@@ -664,6 +664,29 @@ export default function TemplatesPage() {
     }
   };
 
+  // Download Template Format Excel (고정 크기 템플릿 + 자동 페이지 넘김)
+  const handleDownloadTemplate = async (manual: SavedManual) => {
+    try {
+      const response = await fetch(`/api/manuals/${manual.id}/export-template`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${manual.name.replace(/[^a-zA-Z0-9가-힣]/g, '_')}_Template.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+      } else {
+        alert('템플릿 다운로드에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Template download error:', error);
+      alert('템플릿 다운로드 중 오류가 발생했습니다.');
+    }
+  };
+
   // Clear editor form
   const clearEditorForm = () => {
     setMenuName('');
@@ -1601,6 +1624,13 @@ export default function TemplatesPage() {
                                 <Download className="w-4 h-4" />
                               </button>
                               <button 
+                                onClick={() => handleDownloadTemplate(manual)}
+                                className="p-1 text-gray-400 hover:text-blue-500" 
+                                title="Template (고정 형식)"
+                              >
+                                <FileText className="w-4 h-4" />
+                              </button>
+                              <button 
                                 onClick={() => handleEditManual(manual)}
                                 className="p-1 text-gray-400 hover:text-orange-500" 
                                 title="Edit"
@@ -1926,7 +1956,14 @@ export default function TemplatesPage() {
                 className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
               >
                 <Download className="w-4 h-4 inline mr-2" />
-                Excel 다운로드
+                Excel
+              </button>
+              <button
+                onClick={() => handleDownloadTemplate(previewManual)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                <FileText className="w-4 h-4 inline mr-2" />
+                Template
               </button>
               <button
                 onClick={() => { setShowPreviewModal(false); handleEditManual(previewManual); }}

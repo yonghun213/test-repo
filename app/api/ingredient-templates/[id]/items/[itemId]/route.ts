@@ -58,7 +58,7 @@ async function recalculateCostVersionsForTemplate(
 
       if (templateItem) {
         // 패키지 용량 (템플릿 오버라이드 또는 마스터)
-        const packageQuantity = templateItem.quantity ?? templateItem.ingredient.quantity ?? 1;
+        const packageQuantity = templateItem.packageSize ?? 1;
         const safePackageQty = packageQuantity > 0 ? packageQuantity : 1;
         
         // 단위당 가격 = 패키지 가격 / 패키지 용량
@@ -171,15 +171,17 @@ export async function PUT(
     const { id: templateId, itemId } = await params;
     const body = await request.json();
     const { 
+      // Master fields (Turso schema)
+      name,        // 영문명
+      nameKo,      // 한글명
       category, 
-      koreanName, 
-      englishName, 
-      quantity, 
-      unit, 
-      yieldRate, 
+      baseUnit,
+      // Template item fields (Turso schema)
       price, 
       currency,
-      notes,
+      packageSize,
+      packageUnit,
+      yieldRate,
       applyToAll = false // 새로운 파라미터: 모든 템플릿에 적용할지 여부
     } = body;
 
@@ -201,13 +203,12 @@ export async function PUT(
 
     // applyToAll이 true면 Master를 수정하고 모든 템플릿에 반영
     if (applyToAll) {
-      // 1. IngredientMaster 업데이트 (이름, 수량, 단위, 수율)
+      // 1. IngredientMaster 업데이트 (Turso 스키마: name, nameKo, category, baseUnit, yieldRate)
       const masterUpdates: Record<string, unknown> = {};
+      if (name !== undefined) masterUpdates.name = name;
+      if (nameKo !== undefined) masterUpdates.nameKo = nameKo;
       if (category !== undefined) masterUpdates.category = category;
-      if (koreanName !== undefined) masterUpdates.koreanName = koreanName;
-      if (englishName !== undefined) masterUpdates.englishName = englishName;
-      if (quantity !== undefined) masterUpdates.quantity = quantity;
-      if (unit !== undefined) masterUpdates.unit = unit;
+      if (baseUnit !== undefined) masterUpdates.baseUnit = baseUnit;
       if (yieldRate !== undefined) masterUpdates.yieldRate = yieldRate;
 
       if (Object.keys(masterUpdates).length > 0) {
@@ -216,25 +217,20 @@ export async function PUT(
           data: masterUpdates
         });
 
-        // 2. 모든 템플릿의 오버라이드 값을 null로 리셋 (Master 값 사용하도록)
+        // 2. 모든 템플릿의 오버라이드 수율을 null로 리셋 (Master 값 사용하도록)
         const resetResult = await prisma.ingredientTemplateItem.updateMany({
           where: { ingredientId: ingredientMasterId },
           data: {
-            category: null,
-            koreanName: null,
-            englishName: null,
-            quantity: null,
-            unit: null,
             yieldRate: null
           }
         });
         updatedTemplateItems = resetResult.count;
 
         // 3. 연관된 ManualIngredient도 업데이트
-        if (koreanName !== undefined || englishName !== undefined) {
+        if (name !== undefined || nameKo !== undefined) {
           updatedManualIngredients = await updateRelatedManualIngredients(
             ingredientMasterId,
-            { koreanName, englishName }
+            { koreanName: nameKo, englishName: name }
           );
         }
 
@@ -249,7 +245,7 @@ export async function PUT(
       }
 
       // 가격은 템플릿별로 다르므로 현재 템플릿만 업데이트
-      if (price !== undefined || currency !== undefined || notes !== undefined) {
+      if (price !== undefined || currency !== undefined || packageSize !== undefined || packageUnit !== undefined) {
         // 가격이 변경되었으면 이력 저장
         if (price !== undefined && price !== currentItem.price) {
           await prisma.priceHistory.create({
@@ -259,7 +255,7 @@ export async function PUT(
               newPrice: price,
               currency: currency || currentItem.currency,
               changedBy: (session.user as any)?.id || 'system',
-              reason: notes || 'Price update'
+              reason: 'Price update'
             }
           });
         }
@@ -269,7 +265,8 @@ export async function PUT(
           data: {
             ...(price !== undefined && { price }),
             ...(currency !== undefined && { currency }),
-            ...(notes !== undefined && { notes })
+            ...(packageSize !== undefined && { packageSize }),
+            ...(packageUnit !== undefined && { packageUnit })
           }
         });
 
@@ -290,7 +287,7 @@ export async function PUT(
             newPrice: price,
             currency: currency || currentItem.currency,
             changedBy: (session.user as any)?.id || 'system',
-            reason: notes || 'Price override'
+            reason: 'Price override'
           }
         });
       }
@@ -298,15 +295,11 @@ export async function PUT(
       await prisma.ingredientTemplateItem.update({
         where: { id: itemId },
         data: {
-          ...(category !== undefined && { category }),
-          ...(koreanName !== undefined && { koreanName }),
-          ...(englishName !== undefined && { englishName }),
-          ...(quantity !== undefined && { quantity }),
-          ...(unit !== undefined && { unit }),
           ...(yieldRate !== undefined && { yieldRate }),
           ...(price !== undefined && { price }),
           ...(currency !== undefined && { currency }),
-          ...(notes !== undefined && { notes })
+          ...(packageSize !== undefined && { packageSize }),
+          ...(packageUnit !== undefined && { packageUnit })
         }
       });
 
@@ -364,15 +357,11 @@ export async function PATCH(
       const updated = await prisma.ingredientTemplateItem.update({
         where: { id: itemId },
         data: {
-          ...(fields.category !== undefined && { category: fields.category }),
-          ...(fields.koreanName !== undefined && { koreanName: fields.koreanName }),
-          ...(fields.englishName !== undefined && { englishName: fields.englishName }),
-          ...(fields.quantity !== undefined && { quantity: fields.quantity }),
-          ...(fields.unit !== undefined && { unit: fields.unit }),
           ...(fields.yieldRate !== undefined && { yieldRate: fields.yieldRate }),
           ...(fields.price !== undefined && { price: fields.price }),
           ...(fields.currency !== undefined && { currency: fields.currency }),
-          ...(fields.notes !== undefined && { notes: fields.notes })
+          ...(fields.packageSize !== undefined && { packageSize: fields.packageSize }),
+          ...(fields.packageUnit !== undefined && { packageUnit: fields.packageUnit })
         }
       });
       

@@ -262,7 +262,56 @@ function applyGrammarRules(text: string): string {
 // 2단계: MyMemory API로 다듬기
 // ============================================
 
-// POST - 한글 조리법을 영문으로 번역 (2단계 로직)
+// 단일 줄 번역 함수
+async function translateSingleLine(line: string): Promise<string> {
+  if (!line.trim()) return line; // 빈 줄은 그대로 반환
+  
+  // 한글이 없으면 그대로 반환
+  const hasKorean = /[\uAC00-\uD7AF]/.test(line);
+  if (!hasKorean) return line;
+
+  // 1단계: 용어집 기반 치환
+  const step1Result = applyTerminologyMapping(line);
+  
+  // 2단계: 문법 규칙 적용 (조사 제거 + 어순 조정)
+  const step2Result = applyGrammarRules(step1Result);
+  
+  // 남은 한글이 있으면 MyMemory API로 번역
+  const stillHasKorean = /[\uAC00-\uD7AF]/.test(step2Result);
+  
+  if (!stillHasKorean) {
+    return step2Result;
+  }
+
+  // MyMemory API로 번역
+  try {
+    const encodedText = encodeURIComponent(step2Result);
+    const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=ko|en`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      
+      if (data.responseStatus === 200 && data.responseData?.translatedText) {
+        const translation = data.responseData.translatedText;
+        
+        if (translation && !translation.includes('MYMEMORY WARNING')) {
+          return translation;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('MyMemory API error for line:', e);
+  }
+  
+  return step2Result;
+}
+
+// POST - 한글 조리법을 영문으로 번역 (2단계 로직) - 줄바꿈 유지
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -282,84 +331,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 1단계: 용어집 기반 치환
-    const step1Result = applyTerminologyMapping(text);
-    console.log('Step 1 (Terminology mapping):', step1Result);
+    // 줄바꿈으로 분리하여 각 줄을 개별 번역 (줄바꿈 유지)
+    const lines = text.split(/\r?\n/);
+    const translatedLines: string[] = [];
     
-    // 2단계: 문법 규칙 적용 (조사 제거 + 어순 조정)
-    const step2Result = applyGrammarRules(step1Result);
-    console.log('Step 2 (Grammar rules):', step2Result);
-    
-    // 3단계: 남은 한글이 있으면 MyMemory API로 번역
-    const stillHasKorean = /[\uAC00-\uD7AF]/.test(step2Result);
-    
-    if (!stillHasKorean) {
-      // 한글이 모두 처리됨
-      return NextResponse.json({
-        original: text,
-        step1: step1Result,
-        step2: step2Result,
-        finalTranslation: step2Result,
-        usedAI: false,
-        provider: 'Rule-based only'
-      });
+    for (const line of lines) {
+      const translatedLine = await translateSingleLine(line);
+      translatedLines.push(translatedLine);
     }
+    
+    const finalTranslation = translatedLines.join('\n');
+    
+    console.log('Original text with lines:', lines.length);
+    console.log('Final translation:', finalTranslation);
 
-    // 3단계: MyMemory API로 최종 다듬기
-    try {
-      console.log('Step 3: MyMemory translation for remaining Korean...');
-      
-      const encodedText = encodeURIComponent(step2Result);
-      const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=ko|en`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.responseStatus === 200 && data.responseData?.translatedText) {
-          const translation = data.responseData.translatedText;
-          
-          if (translation && !translation.includes('MYMEMORY WARNING')) {
-            console.log('Step 3 (MyMemory):', translation);
-            return NextResponse.json({
-              original: text,
-              step1: step1Result,
-              step2: step2Result,
-              finalTranslation: translation,
-              usedAI: true,
-              provider: 'Hybrid (Rules + MyMemory)'
-            });
-          }
-        }
-      }
-      
-      // MyMemory 실패시 2단계 결과 반환
-      console.warn('MyMemory failed, returning step 2 result');
-      return NextResponse.json({
-        original: text,
-        step1: step1Result,
-        step2: step2Result,
-        finalTranslation: step2Result,
-        usedAI: false,
-        aiError: 'MyMemory translation failed, using rules only'
-      });
-    } catch (apiError: any) {
-      console.error('MyMemory error:', apiError?.message);
-      return NextResponse.json({
-        original: text,
-        step1: step1Result,
-        step2: step2Result,
-        finalTranslation: step2Result,
-        usedAI: false,
-        aiError: `API failed: ${apiError?.message}`
-      });
-    }
+    return NextResponse.json({
+      original: text,
+      finalTranslation: finalTranslation,
+      usedAI: true,
+      provider: 'Hybrid (Rules + MyMemory) - Line-by-line'
+    });
   } catch (error) {
     console.error('Translation error:', error);
     return NextResponse.json({ error: 'Translation failed' }, { status: 500 });
   }
 }
+

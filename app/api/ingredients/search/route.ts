@@ -17,16 +17,16 @@ export async function GET(request: NextRequest) {
     const ingredients = await prisma.ingredientMaster.findMany({
       where: {
         OR: [
-          { koreanName: { contains: query } },
-          { englishName: { contains: query } }
+          { nameKo: { contains: query } },
+          { name: { contains: query } }
         ]
       },
       select: {
         id: true,
-        koreanName: true,
-        englishName: true,
+        name: true,
+        nameKo: true,
         category: true,
-        unit: true,
+        baseUnit: true,
         yieldRate: true,
         templateItems: templateId ? {
           where: { templateId },
@@ -38,19 +38,19 @@ export async function GET(request: NextRequest) {
       },
       take: limit,
       orderBy: [
-        { englishName: 'asc' }
+        { name: 'asc' }
       ]
     });
 
     // Add price info from template if available
-    const result = ingredients.map(ing => {
+    const result = ingredients.map((ing: any) => {
       const templateItem = templateId && ing.templateItems?.[0];
       return {
         id: ing.id,
-        koreanName: ing.koreanName,
-        englishName: ing.englishName,
+        name: ing.name,
+        nameKo: ing.nameKo,
         category: ing.category,
-        unit: ing.unit,
+        baseUnit: ing.baseUnit,
         yieldRate: ing.yieldRate,
         price: templateItem ? templateItem.price : null,
         currency: templateItem ? templateItem.currency : null

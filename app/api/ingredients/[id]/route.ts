@@ -51,16 +51,15 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { category, koreanName, englishName, quantity, unit, yieldRate } = body;
+    const { name, nameKo, category, baseUnit, yieldRate } = body;
 
     const ingredient = await prisma.ingredientMaster.update({
       where: { id },
       data: {
+        ...(name && { name }),
+        ...(nameKo !== undefined && { nameKo }),
         ...(category && { category }),
-        ...(koreanName && { koreanName }),
-        ...(englishName && { englishName }),
-        ...(quantity !== undefined && { quantity }),
-        ...(unit && { unit }),
+        ...(baseUnit && { baseUnit }),
         ...(yieldRate !== undefined && { yieldRate })
       }
     });

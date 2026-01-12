@@ -17,7 +17,8 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
 
   try {
-    const [storeCount, userCount, activeTaskCount, storesByCountry, storesByStatus] = await Promise.all([
+    // Basic counts - these should always work
+    const [storeCount, userCount, activeTaskCount] = await Promise.all([
       prisma.store.count(),
       prisma.user.count(),
       prisma.task.count({
@@ -27,16 +28,43 @@ export default async function DashboardPage() {
           },
         },
       }),
-      prisma.store.groupBy({
+    ]);
+
+    // GroupBy queries - may fail if columns don't exist in DB
+    let storesByCountry: { country: string; _count: { id: number } }[] = [];
+    let storesByStatus: { status: string; _count: { id: number } }[] = [];
+
+    try {
+      const countryResult = await prisma.store.groupBy({
         by: ['country'],
         _count: { id: true },
         orderBy: { _count: { id: 'desc' } },
-      }),
-      prisma.store.groupBy({
+      });
+      storesByCountry = countryResult as { country: string; _count: { id: number } }[];
+    } catch (e) {
+      console.warn('Failed to group stores by country:', e);
+      // Fallback: get unique countries from stores
+      const stores = await prisma.store.findMany({ select: { country: true } });
+      const countryMap = new Map<string, number>();
+      stores.forEach((s: { country: string }) => {
+        if (s.country) countryMap.set(s.country, (countryMap.get(s.country) || 0) + 1);
+      });
+      storesByCountry = Array.from(countryMap.entries()).map(([country, count]) => ({
+        country,
+        _count: { id: count }
+      }));
+    }
+
+    try {
+      const statusResult = await prisma.store.groupBy({
         by: ['status'],
         _count: { id: true },
-      }),
-    ]);
+      });
+      storesByStatus = statusResult as { status: string; _count: { id: number } }[];
+    } catch (e) {
+      console.warn('Failed to group stores by status:', e);
+      storesByStatus = [];
+    }
 
     const recentStores = await prisma.store.findMany({
       take: 5,

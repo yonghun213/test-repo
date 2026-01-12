@@ -140,12 +140,12 @@ export async function PUT(
     }>();
     
     for (const item of template.items) {
-      const packageQuantity = item.quantity ?? item.ingredient.quantity ?? 1;
+      const packageQuantity = item.packageSize ?? 1;
       priceMap.set(item.ingredientId, {
         price: item.price,
         currency: item.currency,
         yieldRate: item.yieldRate ?? item.ingredient.yieldRate,
-        unit: item.unit ?? item.ingredient.unit,
+        unit: item.packageUnit ?? item.ingredient.baseUnit,
         packageQuantity: packageQuantity > 0 ? packageQuantity : 1
       });
     }
