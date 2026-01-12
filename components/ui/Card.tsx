@@ -28,6 +28,19 @@ export function CardHeader({ children, className }: CardProps) {
   );
 }
 
+export function CardTitle({ children, className }: CardProps) {
+  return (
+    <h3
+      className={cn(
+        'text-2xl font-semibold leading-none tracking-tight',
+        className
+      )}
+    >
+      {children}
+    </h3>
+  );
+}
+
 export function CardContent({ children, className }: CardProps) {
   return (
     <div className={cn('p-4', className)}>
