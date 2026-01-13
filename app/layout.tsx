@@ -15,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="font-sans">
+      <body className="font-sans" suppressHydrationWarning={true}>
         <Providers>
           {children}
           <Toaster position="top-right" />
