@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       where,
       orderBy: [
         { category: 'asc' },
-        { name: 'asc' }
+        { koreanName: 'asc' }
       ]
     });
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ingredients,
-      categories: categories.map((c: { category: string }) => c.category)
+      categories: categories.map(c => c.category)
     });
   } catch (error) {
     console.error('Failed to fetch ingredients:', error);
@@ -50,22 +50,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, nameKo, category, baseUnit, yieldRate } = body;
+    const { category, koreanName, englishName, quantity, unit, yieldRate } = body;
 
-    if (!category || !name) {
+    if (!category || !koreanName || !englishName) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Create master ingredient (Turso schema)
+    // Create master ingredient
     const ingredient = await prisma.ingredientMaster.create({
       data: {
-        name,
-        nameKo: nameKo || null,
-        kind: 'RAW',
         category,
-        baseUnit: baseUnit || 'g',
-        yieldRate: yieldRate || 100,
-        isActive: true
+        koreanName,
+        englishName,
+        quantity: quantity || 0,
+        unit: unit || 'g',
+        yieldRate: yieldRate || 100
       }
     });
 
@@ -73,13 +72,16 @@ export async function POST(request: NextRequest) {
     const templates = await prisma.ingredientTemplate.findMany();
     
     for (const template of templates) {
+      const currency = template.country === 'MX' ? 'MXN' 
+        : template.country === 'CO' ? 'COP' 
+        : 'CAD';
+      
       await prisma.ingredientTemplateItem.create({
         data: {
           templateId: template.id,
           ingredientId: ingredient.id,
           price: 0,
-          currency: 'CAD',
-          isActive: true
+          currency
         }
       });
     }

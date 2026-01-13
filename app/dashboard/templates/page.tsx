@@ -7,10 +7,10 @@ import { FileText, Download, Plus, Trash2, Eye, Save, RefreshCw, Settings, Table
 // 타입 정의
 interface IngredientSuggestion {
   id: string;
-  name: string;      // 영문명 (Turso schema)
-  nameKo: string;    // 한글명 (Turso schema)
+  koreanName: string;
+  englishName: string;
   category: string;
-  baseUnit: string;  // Turso schema
+  unit: string;
   yieldRate: number;
   price?: number | null;
   currency?: string | null;
@@ -76,7 +76,7 @@ interface CostVersion {
 interface PriceTemplate {
   id: string;
   name: string;
-  countryId?: string;
+  country?: string;
 }
 
 const DEFAULT_COOKING_PROCESSES = [
@@ -306,9 +306,9 @@ export default function TemplatesPage() {
     const newIngredients = [...ingredients];
     newIngredients[index] = {
       ...newIngredients[index],
-      name: suggestion.name,
-      koreanName: suggestion.nameKo || suggestion.name,
-      unit: suggestion.baseUnit,
+      name: suggestion.englishName,
+      koreanName: suggestion.koreanName,
+      unit: suggestion.unit,
       ingredientId: suggestion.id,
       price: suggestion.price,
       currency: suggestion.currency
@@ -661,29 +661,6 @@ export default function TemplatesPage() {
     } catch (error) {
       console.error('Excel download error:', error);
       alert('Excel 다운로드 중 오류가 발생했습니다.');
-    }
-  };
-
-  // Download Template Format Excel (고정 크기 템플릿 + 자동 페이지 넘김)
-  const handleDownloadTemplate = async (manual: SavedManual) => {
-    try {
-      const response = await fetch(`/api/manuals/${manual.id}/export-template`);
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${manual.name.replace(/[^a-zA-Z0-9가-힣]/g, '_')}_Template.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        a.remove();
-      } else {
-        alert('템플릿 다운로드에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Template download error:', error);
-      alert('템플릿 다운로드 중 오류가 발생했습니다.');
     }
   };
 
@@ -1199,7 +1176,7 @@ export default function TemplatesPage() {
                 >
                   <option value="">템플릿 선택...</option>
                   {priceTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
+                    <option key={t.id} value={t.id}>{t.name} ({t.country || 'N/A'})</option>
                   ))}
                 </select>
               </div>
@@ -1290,7 +1267,7 @@ export default function TemplatesPage() {
                                     onClick={() => selectIngredient(i, sugg)}
                                   >
                                     <div className="flex justify-between items-center">
-                                      <span>{sugg.nameKo || sugg.name} → {sugg.name}</span>
+                                      <span>{sugg.koreanName} → {sugg.englishName}</span>
                                       <div className="flex items-center gap-2">
                                         {sugg.price ? (
                                           <span className="text-green-600 font-medium">${sugg.price.toFixed(2)}</span>
@@ -1431,7 +1408,7 @@ export default function TemplatesPage() {
                     <option value="">전체 매뉴얼</option>
                     {getAppliedTemplates().map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.name} - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
+                        {t.name} ({t.country || 'N/A'}) - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
                       </option>
                     ))}
                     <option value="__none__">미적용 (가격 없음)</option>
@@ -1468,7 +1445,7 @@ export default function TemplatesPage() {
                       >
                         <option value="">가격 템플릿 선택...</option>
                         {priceTemplates.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
+                          <option key={t.id} value={t.id}>{t.name} ({t.country || 'N/A'})</option>
                         ))}
                       </select>
                       <button
@@ -1564,7 +1541,7 @@ export default function TemplatesPage() {
                       <td className="px-4 py-3 text-center">
                         {appliedTemplate ? (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {appliedTemplate.name}
+                            {appliedTemplate.country || appliedTemplate.name}
                           </span>
                         ) : (
                           <span className="text-gray-400 text-sm">미적용</span>
@@ -1622,13 +1599,6 @@ export default function TemplatesPage() {
                                 title="Excel"
                               >
                                 <Download className="w-4 h-4" />
-                              </button>
-                              <button 
-                                onClick={() => handleDownloadTemplate(manual)}
-                                className="p-1 text-gray-400 hover:text-blue-500" 
-                                title="Template (고정 형식)"
-                              >
-                                <FileText className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => handleEditManual(manual)}
@@ -1711,7 +1681,7 @@ export default function TemplatesPage() {
                   <option value="">전체 보기 (모든 국가)</option>
                   {getAppliedTemplates().map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
+                      {t.name} ({t.country || 'N/A'}) - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
                     </option>
                   ))}
                 </select>
@@ -1760,7 +1730,7 @@ export default function TemplatesPage() {
                         <td className="px-4 py-3 text-center">
                           {appliedTemplate ? (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {appliedTemplate.name}
+                              {appliedTemplate.country || appliedTemplate.name}
                             </span>
                           ) : (
                             <span className="text-gray-400 text-sm">-</span>
@@ -1956,14 +1926,7 @@ export default function TemplatesPage() {
                 className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
               >
                 <Download className="w-4 h-4 inline mr-2" />
-                Excel
-              </button>
-              <button
-                onClick={() => handleDownloadTemplate(previewManual)}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-              >
-                <FileText className="w-4 h-4 inline mr-2" />
-                Template
+                Excel 다운로드
               </button>
               <button
                 onClick={() => { setShowPreviewModal(false); handleEditManual(previewManual); }}

@@ -45,33 +45,33 @@ export async function GET(request: NextRequest) {
     const ingredients = await prisma.ingredientMaster.findMany({
       where: {
         OR: [
-          { name: { contains: query } },
-          { nameKo: { contains: query } },
+          { englishName: { contains: query } },
+          { koreanName: { contains: query } },
         ],
       },
       take: 5,
     });
 
     const results = [
-      ...stores.map((store: any) => ({
+      ...stores.map((store) => ({
         type: 'store' as const,
         id: store.id,
         title: store.officialName || store.tempName || 'Unnamed Store',
         subtitle: `${store.city}, ${store.country}`,
         href: `/dashboard/stores/${store.id}`,
       })),
-      ...manuals.map((manual: any) => ({
+      ...manuals.map((manual) => ({
         type: 'manual' as const,
         id: manual.id,
         title: manual.name,
         subtitle: manual.koreanName || 'Menu Manual',
         href: `/dashboard/templates?manual=${manual.id}`,
       })),
-      ...ingredients.map((ing: any) => ({
+      ...ingredients.map((ing) => ({
         type: 'ingredient' as const,
         id: ing.id,
-        title: ing.name,
-        subtitle: ing.nameKo || 'Ingredient',
+        title: ing.englishName,
+        subtitle: ing.koreanName || 'Ingredient',
         href: `/dashboard/pricing?ingredient=${ing.id}`,
       })),
     ];

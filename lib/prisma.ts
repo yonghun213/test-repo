@@ -4,21 +4,6 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-function createDisabledPrismaClient(): PrismaClient {
-  return new Proxy(
-    {},
-    {
-      get() {
-        const error = new Error(
-          'Database is not configured. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in your environment.'
-        );
-        (error as any).code = 'DB_NOT_CONFIGURED';
-        throw error;
-      },
-    }
-  ) as PrismaClient;
-}
-
 function createPrismaClient(): PrismaClient {
   // Skip Turso during build time
   const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
@@ -42,10 +27,6 @@ function createPrismaClient(): PrismaClient {
       console.error('Failed to create Turso adapter:', e);
       throw e; // Don't fallback to SQLite - it won't work on Vercel
     }
-  }
-
-  if (!isBuildTime && process.env.NODE_ENV === 'production' && !hasTursoCredentials) {
-    return createDisabledPrismaClient();
   }
   
   // Local development or build time: Use SQLite

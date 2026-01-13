@@ -1,342 +1,203 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
-import { 
-  Package, Plus, Search, Filter, Download, Upload, 
-  TrendingUp, TrendingDown, AlertTriangle, RefreshCw,
-  Calendar, FileSpreadsheet, BarChart3
-} from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 
-interface Ingredient {
+// 타입 정의 (실제로는 별도 파일로 분리하는 것이 좋음)
+interface InventoryGroup {
   id: string;
-  category: string;
-  koreanName: string;
-  englishName: string;
-  quantity: number;
-  unit: string;
-  yieldRate: number;
+  name: string;
+  _count: { periods: number };
 }
 
-interface InventoryItem {
+interface InventoryPeriod {
   id: string;
-  ingredientId: string;
-  ingredient: Ingredient;
-  beginningQty: number;
-  receivedQty: number;
-  theoreticalUsage: number;
-  actualUsage: number;
-  endingQty: number;
-  variance: number;
-  variancePercent: number;
+  startDate: string;
+  endDate: string;
   status: string;
+  notes: string;
+  _count: { items: number };
 }
 
-type TabType = 'inventory' | 'receiving' | 'count' | 'analysis';
+export default function InventoryDashboardPage() {
+  const router = useRouter();
+  const [groups, setGroups] = useState<InventoryGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [periods, setPeriods] = useState<InventoryPeriod[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-export default function InventoryPage() {
-  const { data: session, status } = useSession();
-  const [activeTab, setActiveTab] = useState<TabType>('inventory');
-  const [loading, setLoading] = useState(true);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [inventoryData, setInventoryData] = useState<InventoryItem[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedStore, setSelectedStore] = useState('');
-  const [stores, setStores] = useState<any[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-
+  // 1. 초기 로딩: 그룹 목록 가져오기
   useEffect(() => {
-    if (status === 'unauthenticated') redirect('/login');
-  }, [status]);
-
-  useEffect(() => {
-    fetchData();
+    fetchGroups();
   }, []);
 
-  const fetchData = async () => {
+  // 2. 그룹 선택 시: 해당 그룹의 기간 목록 가져오기
+  useEffect(() => {
+    if (selectedGroupId) {
+      fetchPeriods(selectedGroupId);
+    } else {
+      setPeriods([]);
+    }
+  }, [selectedGroupId]);
+
+  const fetchGroups = async () => {
     try {
-      // Fetch ingredients
-      const ingredientsRes = await fetch('/api/ingredients');
-      if (ingredientsRes.ok) {
-        const data = await ingredientsRes.json();
-        setIngredients(data);
-        
-        // Extract categories
-        const cats = [...new Set(data.map((i: Ingredient) => i.category))];
-        setCategories(cats as string[]);
-        
-        // Create inventory data from ingredients
-        const invData = data.map((ing: Ingredient) => ({
-          id: `inv_${ing.id}`,
-          ingredientId: ing.id,
-          ingredient: ing,
-          beginningQty: 0,
-          receivedQty: 0,
-          theoreticalUsage: 0,
-          actualUsage: 0,
-          endingQty: 0,
-          variance: 0,
-          variancePercent: 0,
-          status: 'PENDING'
-        }));
-        setInventoryData(invData);
-      }
-      
-      // Fetch stores
-      const storesRes = await fetch('/api/stores');
-      if (storesRes.ok) {
-        const data = await storesRes.json();
-        setStores(data.stores || data);
+      const res = await fetch('/api/inventory/groups');
+      const data = await res.json();
+      setGroups(data);
+      if (data.length > 0) {
+        setSelectedGroupId(data[0].id); // 기본적으로 첫 번째 그룹 선택
       }
     } catch (error) {
-      console.error('Failed to fetch data:', error);
-      toast.error('Failed to load inventory data');
+      console.error('Failed to fetch groups:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const filteredInventory = inventoryData.filter(item => {
-    const matchesSearch = 
-      item.ingredient.englishName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.ingredient.koreanName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || item.ingredient.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const fetchPeriods = async (groupId: string) => {
+    try {
+      const res = await fetch(`/api/inventory/periods?groupId=${groupId}`);
+      const data = await res.json();
+      setPeriods(data);
+    } catch (error) {
+      console.error('Failed to fetch periods:', error);
+    }
+  };
 
-  const tabs = [
-    { id: 'inventory' as TabType, name: 'Inventory', icon: Package },
-    { id: 'receiving' as TabType, name: 'Receiving', icon: Download },
-    { id: 'count' as TabType, name: 'Count History', icon: Calendar },
-    { id: 'analysis' as TabType, name: 'Analysis', icon: BarChart3 },
-  ];
+  const handleCreateGroup = async () => {
+    const name = prompt('Enter new group name (e.g., PURI Store):');
+    if (!name) return;
 
-  if (loading || status === 'loading') {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
-          <p className="mt-4 text-gray-500">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+    try {
+      const res = await fetch('/api/inventory/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        fetchGroups(); // 목록 갱신
+      }
+    } catch (error) {
+      alert('Failed to create group');
+    }
+  };
+
+  const handleCreatePeriod = async () => {
+    if (!selectedGroupId) return;
+
+    // 간단한 날짜 입력 (추후 DatePicker로 개선 가능)
+    const startDateStr = prompt('Start Date (YYYY-MM-DD):', format(new Date(), 'yyyy-MM-dd'));
+    if (!startDateStr) return;
+    
+    const endDateStr = prompt('End Date (YYYY-MM-DD):', format(new Date(), 'yyyy-MM-dd'));
+    if (!endDateStr) return;
+
+    try {
+      const res = await fetch('/api/inventory/periods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId: selectedGroupId,
+          startDate: startDateStr,
+          endDate: endDateStr,
+          notes: 'Created manually',
+        }),
+      });
+      
+      if (res.ok) {
+        fetchPeriods(selectedGroupId); // 목록 갱신
+      } else {
+        alert('Failed to create period');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Error creating period');
+    }
+  };
+
+  if (isLoading) return <div className="p-8">Loading inventory data...</div>;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Package className="w-7 h-7 text-orange-500" />
-            Inventory Management
-          </h1>
-          <p className="text-gray-500 mt-1">재고 관리 - 입고, 실사, 분석</p>
-        </div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">Inventory Management</h1>
+        <Button onClick={handleCreateGroup}>+ New Store Group</Button>
+      </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={selectedStore}
-            onChange={(e) => setSelectedStore(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+      {/* 그룹 선택 탭 */}
+      <div className="flex space-x-2 border-b border-gray-200 pb-2 overflow-x-auto">
+        {groups.map((group) => (
+          <button
+            key={group.id}
+            onClick={() => setSelectedGroupId(group.id)}
+            className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+              selectedGroupId === group.id
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
           >
-            <option value="">Select Store</option>
-            {stores.map((store: any) => (
-              <option key={store.id} value={store.id}>
-                {store.officialName || store.tempName}
-              </option>
-            ))}
-          </select>
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-            <Upload className="w-4 h-4" />
-            Import
+            {group.name}
           </button>
-          <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            Export
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Total Items</p>
-              <p className="text-2xl font-bold text-gray-900">{ingredients.length}</p>
-            </div>
-            <Package className="w-10 h-10 text-blue-500 opacity-50" />
+      {/* 기간 목록 및 생성 버튼 */}
+      {selectedGroupId ? (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-700">Inventory Periods</h2>
+            <Button onClick={handleCreatePeriod} variant="outline">
+              + Start New Period
+            </Button>
           </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Categories</p>
-              <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
-            </div>
-            <Filter className="w-10 h-10 text-green-500 opacity-50" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Low Stock</p>
-              <p className="text-2xl font-bold text-orange-600">0</p>
-            </div>
-            <AlertTriangle className="w-10 h-10 text-orange-500 opacity-50" />
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Variance Alert</p>
-              <p className="text-2xl font-bold text-red-600">0</p>
-            </div>
-            <TrendingDown className="w-10 h-10 text-red-500 opacity-50" />
-          </div>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.name}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search ingredients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-          />
-        </div>
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg"
-        >
-          <option value="all">All Categories</option>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
-        <button
-          onClick={fetchData}
-          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Content based on active tab */}
-      {activeTab === 'inventory' && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Korean Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">English Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Beginning</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Received</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ending</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Variance</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredInventory.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      No inventory data found. Select a store and import data.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredInventory.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm">
-                        <span className="px-2 py-1 bg-gray-100 rounded text-xs">{item.ingredient.category}</span>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.ingredient.koreanName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{item.ingredient.englishName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{item.ingredient.unit}</td>
-                      <td className="px-4 py-3 text-sm text-right">{item.beginningQty}</td>
-                      <td className="px-4 py-3 text-sm text-right">{item.receivedQty}</td>
-                      <td className="px-4 py-3 text-sm text-right">{item.endingQty}</td>
-                      <td className="px-4 py-3 text-sm text-right">
-                        <span className={`${item.variance < 0 ? 'text-red-600' : item.variance > 0 ? 'text-green-600' : 'text-gray-500'}`}>
-                          {item.variance}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {periods.length === 0 ? (
+              <div className="col-span-full text-center py-10 text-gray-500 bg-gray-50 rounded-lg">
+                No inventory periods found. Start a new one!
+              </div>
+            ) : (
+              periods.map((period) => (
+                <Card 
+                  key={period.id} 
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => router.push(`/dashboard/inventory/${period.id}`)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg">
+                        {format(new Date(period.startDate), 'MMM d')} - {format(new Date(period.endDate), 'MMM d, yyyy')}
+                      </CardTitle>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        period.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {period.status}
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-500 mb-2">
+                      {period._count.items} items tracked
+                    </p>
+                    {period.notes && (
+                      <p className="text-sm text-gray-400 italic truncate">
+                        {period.notes}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </div>
-      )}
-
-      {activeTab === 'receiving' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-center py-12">
-            <Download className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Receiving Records</h3>
-            <p className="text-gray-500 mb-4">Track all incoming inventory deliveries</p>
-            <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 mx-auto">
-              <Plus className="w-4 h-4" />
-              New Receiving Entry
-            </button>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'count' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-center py-12">
-            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Count History</h3>
-            <p className="text-gray-500 mb-4">View past inventory counts and audits</p>
-            <button className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2 mx-auto">
-              <Plus className="w-4 h-4" />
-              Start New Count
-            </button>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'analysis' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-center py-12">
-            <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Inventory Analysis</h3>
-            <p className="text-gray-500 mb-4">Variance reports and consumption trends</p>
-            <p className="text-sm text-gray-400">Select a store and time period to view analysis</p>
-          </div>
+      ) : (
+        <div className="text-center py-20 text-gray-500">
+          Please create a store group to get started.
         </div>
       )}
     </div>

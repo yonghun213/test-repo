@@ -5,20 +5,9 @@ import { createClient } from '@libsql/client';
 
 // Turso 클라이언트 생성
 function getDbClient() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-
-  if (!url || !authToken) {
-    const error = new Error(
-      'Database is not configured. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in your environment.'
-    );
-    (error as any).code = 'DB_NOT_CONFIGURED';
-    throw error;
-  }
-
   return createClient({
-    url,
-    authToken,
+    url: process.env.TURSO_DATABASE_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN!,
   });
 }
 
@@ -72,13 +61,7 @@ export const authOptions: NextAuthOptions = {
           };
         } catch (error) {
           console.error('❌ Auth error:', error);
-          if ((error as any)?.code === 'DB_NOT_CONFIGURED') {
-            throw error;
-          }
-
-          const authError = new Error('Authentication database error');
-          (authError as any).code = 'DB_AUTH_ERROR';
-          throw authError;
+          return null;
         }
       },
     }),

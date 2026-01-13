@@ -30,7 +30,7 @@ export async function GET(
           },
           orderBy: [
             { ingredient: { category: 'asc' } },
-            { ingredient: { name: 'asc' } }
+            { ingredient: { koreanName: 'asc' } }
           ]
         }
       }
@@ -60,13 +60,15 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, description, isActive } = body;
+    const { name, country, description, storeIds, isActive } = body;
 
     const template = await prisma.ingredientTemplate.update({
       where: { id },
       data: {
         ...(name && { name }),
+        ...(country !== undefined && { country }),
         ...(description !== undefined && { description }),
+        ...(storeIds !== undefined && { storeIds: Array.isArray(storeIds) ? storeIds.join(',') : storeIds }),
         ...(isActive !== undefined && { isActive })
       }
     });

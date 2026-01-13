@@ -93,7 +93,7 @@ export async function PUT(
             data: {
               name: `${template.name} Manuals`,
               templateId: template.id,
-              currency: 'CAD'
+              currency: template.country === 'CA' ? 'CAD' : 'USD'
             }
           });
           groupId = newGroup.id;
@@ -219,7 +219,7 @@ export async function PUT(
                 templateId: targetTemplateId,
                 name: `${template.name} Cost`,
                 totalCost,
-                currency: 'CAD',
+                currency: template.country === 'CA' ? 'CAD' : 'USD',
                 costPerUnit: currentManual.yield ? totalCost / currentManual.yield : null,
                 calculatedAt: new Date(),
                 costLines: { create: costLines }
