@@ -19,15 +19,7 @@ export async function GET() {
     
     const result = await db.execute('SELECT COUNT(*) as count FROM User');
     diagnostics.tursoConnection = 'SUCCESS';
-    const rawCount = result.rows[0]?.count;
-    diagnostics.userCount =
-      typeof rawCount === 'bigint'
-        ? Number(rawCount)
-        : typeof rawCount === 'number'
-          ? rawCount
-          : typeof rawCount === 'string'
-            ? Number(rawCount)
-            : rawCount;
+    diagnostics.userCount = result.rows[0]?.count;
   } catch (e: any) {
     diagnostics.tursoConnection = 'FAILED';
     diagnostics.tursoError = e.message;

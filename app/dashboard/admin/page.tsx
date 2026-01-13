@@ -5,7 +5,6 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
 import AdminAuditSection from '@/components/AdminAuditSection';
-import AdminSystemDiagnostics from '@/components/AdminSystemDiagnostics';
 
 // 중남미 및 북미 타임존 목록
 const TIMEZONES = [
@@ -428,42 +427,8 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      {/* Exchange Rates & System Settings Section */}
-      <section id="settings" className="space-y-6 pt-8 border-t">
-        <h2 className="text-xl font-semibold flex items-center gap-2">
-          <span>⚙️</span> System Settings
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-2">💱 Exchange Rates</h3>
-            <p className="text-sm text-gray-500 mb-4">Manage currency exchange rates for pricing calculations.</p>
-            <a
-              href="/dashboard/admin/exchange-rates"
-              className="inline-block px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors"
-            >
-              Manage Rates →
-            </a>
-          </div>
-          
-          <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-2">📦 Inventory Settings</h3>
-            <p className="text-sm text-gray-500 mb-4">Configure inventory management and counting settings.</p>
-            <a
-              href="/dashboard/inventory"
-              className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-            >
-              Go to Inventory →
-            </a>
-          </div>
-        </div>
-      </section>
-
       {/* Audit Logs Section */}
       <AdminAuditSection />
-
-      {/* System Diagnostics Section */}
-      <AdminSystemDiagnostics />
     </div>
   );
 }

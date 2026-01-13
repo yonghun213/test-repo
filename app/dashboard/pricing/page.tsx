@@ -12,33 +12,36 @@ const ExcelPriceUploader = dynamic(() => import('@/components/ExcelPriceUploader
 
 interface IngredientMaster {
   id: string;
-  name: string;           // 영문명
-  nameKo: string | null;  // 한글명
-  kind: string;           // RAW, PRODUCED
   category: string;
-  baseUnit: string;
+  koreanName: string;
+  englishName: string;
+  quantity: number;
+  unit: string;
   yieldRate: number;
-  isActive: boolean;
 }
 
 interface TemplateItem {
   id: string;
   templateId: string;
   ingredientId: string;
+  category: string | null;
+  koreanName: string | null;
+  englishName: string | null;
+  quantity: number | null;
+  unit: string | null;
+  yieldRate: number | null;
   price: number;
   currency: string;
-  packageSize: number | null;
-  packageUnit: string | null;
-  yieldRate: number | null;
-  isActive: boolean;
+  notes: string | null;
   ingredient: IngredientMaster;
 }
 
 interface IngredientTemplate {
   id: string;
   name: string;
-  countryId: string;
+  country: string | null;
   description: string | null;
+  storeIds: string | null;
   isActive: boolean;
   items?: TemplateItem[];
 }
@@ -99,8 +102,6 @@ export default function PricingPage() {
   const [showApplyAllModal, setShowApplyAllModal] = useState(false);
   const [pendingMasterChanges, setPendingMasterChanges] = useState<Array<{itemId: string; fields: Partial<TemplateItem>}>>([]);
   const [pendingPriceChanges, setPendingPriceChanges] = useState<Array<{itemId: string; fields: Partial<TemplateItem>}>>([]);
-  const [confirmationWord, setConfirmationWord] = useState('');
-  const REQUIRED_CONFIRMATION_WORD = 'APPLY'; // 대문자로 입력해야 하는 확인 단어
 
   useEffect(() => {
     if (status === 'unauthenticated') redirect('/login');
@@ -154,13 +155,13 @@ export default function PricingPage() {
     
     // First filter
     let items = selectedTemplate.items.filter(item => {
-      const effectiveCategory = item.ingredient.category;
-      const effectiveName = item.ingredient.name || '';
-      const effectiveNameKo = item.ingredient.nameKo || '';
+      const effectiveCategory = item.category || item.ingredient.category;
+      const effectiveKoreanName = item.koreanName || item.ingredient.koreanName;
+      const effectiveEnglishName = item.englishName || item.ingredient.englishName;
       const matchesCategory = categoryFilter === 'all' || effectiveCategory === categoryFilter;
       const matchesSearch = !searchTerm || 
-        effectiveName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        effectiveNameKo.toLowerCase().includes(searchTerm.toLowerCase());
+        effectiveKoreanName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        effectiveEnglishName.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesCategory && matchesSearch;
     });
     
@@ -212,8 +213,8 @@ export default function PricingPage() {
     if (editedItems.size === 0) return;
     
     // 변경사항 분류: 마스터 필드(이름, 수량, 단위, 수율) vs 가격 필드
-    const masterFields = ['category', 'name', 'nameKo', 'baseUnit', 'yieldRate'];
-    const priceFields = ['price', 'currency', 'packageSize', 'packageUnit'];
+    const masterFields = ['category', 'koreanName', 'englishName', 'quantity', 'unit', 'yieldRate'];
+    const priceFields = ['price', 'currency', 'notes'];
     
     const masterChanges: Array<{itemId: string; fields: Partial<TemplateItem>}> = [];
     const priceChanges: Array<{itemId: string; fields: Partial<TemplateItem>}> = [];
@@ -369,7 +370,7 @@ export default function PricingPage() {
     if (!selectedTemplate?.items) return {};
     const counts: Record<string, number> = {};
     selectedTemplate.items.forEach(item => {
-      const cat = item.ingredient.category;
+      const cat = item.category || item.ingredient.category;
       counts[cat] = (counts[cat] || 0) + 1;
     });
     return counts;
@@ -495,7 +496,7 @@ export default function PricingPage() {
               <option value="" disabled>템플레이트를 선택하세요...</option>
               {templates.map(template => (
                 <option key={template.id} value={template.id}>
-                  {template.name}
+                  {template.name} {template.country && `(${template.country})`}
                 </option>
               ))}
             </select>
@@ -548,23 +549,23 @@ export default function PricingPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                  카테고리
+                <th onClick={() => handleSort('category')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 cursor-pointer hover:bg-gray-100">
+                  카테고리 <SortIcon field="category" />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  한글명
+                <th onClick={() => handleSort('koreanName')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  한글명 <SortIcon field="koreanName" />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  영문명
+                <th onClick={() => handleSort('englishName')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
+                  영문명 <SortIcon field="englishName" />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                  수량
+                <th onClick={() => handleSort('quantity')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 cursor-pointer hover:bg-gray-100">
+                  수량 <SortIcon field="quantity" />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                  단위
+                <th onClick={() => handleSort('unit')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20 cursor-pointer hover:bg-gray-100">
+                  단위 <SortIcon field="unit" />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                  수율(%)
+                <th onClick={() => handleSort('yieldRate')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20 cursor-pointer hover:bg-gray-100">
+                  수율(%) <SortIcon field="yieldRate" />
                 </th>
                 <th onClick={() => handleSort('price')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28 cursor-pointer hover:bg-gray-100">
                   금액 <SortIcon field="price" />
@@ -580,23 +581,32 @@ export default function PricingPage() {
                 return (
                   <tr key={item.id} className={isEdited ? 'bg-yellow-50' : 'hover:bg-gray-50'}>
                     <td className="px-4 py-2">
-                      <span className="text-sm text-gray-700">{item.ingredient.category}</span>
+                      <select value={getEffectiveValue(item, 'category') as string} onChange={(e) => handleItemEdit(item.id, 'category', e.target.value)}
+                        className="w-full border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                        {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      </select>
                     </td>
                     <td className="px-4 py-2">
-                      <span className="text-sm text-gray-900">{item.ingredient.nameKo || '-'}</span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className="text-sm text-gray-900">{item.ingredient.name}</span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <input type="number" value={editedItems.get(item.id)?.packageSize ?? item.packageSize ?? 0} onChange={(e) => handleItemEdit(item.id, 'packageSize', parseFloat(e.target.value) || 0)}
+                      <input type="text" value={getEffectiveValue(item, 'koreanName') as string} onChange={(e) => handleItemEdit(item.id, 'koreanName', e.target.value)}
                         className="w-full border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500" />
                     </td>
                     <td className="px-4 py-2">
-                      <span className="text-sm text-gray-700">{item.packageUnit || item.ingredient.baseUnit}</span>
+                      <input type="text" value={getEffectiveValue(item, 'englishName') as string} onChange={(e) => handleItemEdit(item.id, 'englishName', e.target.value)}
+                        className="w-full border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500" />
                     </td>
                     <td className="px-4 py-2">
-                      <span className="text-sm text-gray-700">{item.yieldRate ?? item.ingredient.yieldRate}%</span>
+                      <input type="number" value={getEffectiveValue(item, 'quantity') as number} onChange={(e) => handleItemEdit(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                        className="w-full border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500" />
+                    </td>
+                    <td className="px-4 py-2">
+                      <select value={getEffectiveValue(item, 'unit') as string} onChange={(e) => handleItemEdit(item.id, 'unit', e.target.value)}
+                        className="w-full border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2">
+                      <input type="number" value={getEffectiveValue(item, 'yieldRate') as number} onChange={(e) => handleItemEdit(item.id, 'yieldRate', parseFloat(e.target.value) || 0)}
+                        min="0" max="100" className="w-full border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500" />
                     </td>
                     <td className="px-4 py-2">
                       <input type="number" value={editedItems.get(item.id)?.price ?? item.price} onChange={(e) => handleItemEdit(item.id, 'price', parseFloat(e.target.value) || 0)}
@@ -752,7 +762,7 @@ export default function PricingPage() {
               <ul className="text-sm text-gray-600 space-y-1 max-h-32 overflow-y-auto">
                 {pendingMasterChanges.map((change, idx) => {
                   const item = selectedTemplate?.items?.find(i => i.id === change.itemId);
-                  const effectiveName = item?.ingredient.nameKo || item?.ingredient.name || '알 수 없음';
+                  const effectiveName = item?.koreanName || item?.ingredient.koreanName || '알 수 없음';
                   return (
                     <li key={idx} className="flex items-center gap-2">
                       <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
@@ -766,43 +776,17 @@ export default function PricingPage() {
                 })}
               </ul>
             </div>
-
-            {/* 확인 단어 입력 (모든 템플릿 적용 시) */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-red-700 mb-2">
-                <strong>⚠️ 주의:</strong> 모든 템플릿에 적용하려면 아래에 <strong className="font-mono bg-red-100 px-1">{REQUIRED_CONFIRMATION_WORD}</strong>를 정확히 입력하세요.
-              </p>
-              <input
-                type="text"
-                value={confirmationWord}
-                onChange={(e) => setConfirmationWord(e.target.value)}
-                placeholder={`"${REQUIRED_CONFIRMATION_WORD}" 입력`}
-                className="w-full border border-red-300 rounded-lg px-3 py-2 text-center font-mono text-lg uppercase focus:ring-2 focus:ring-red-500 focus:border-red-500"
-              />
-              {confirmationWord && confirmationWord !== REQUIRED_CONFIRMATION_WORD && (
-                <p className="text-xs text-red-500 mt-1 text-center">대문자로 정확히 입력해주세요</p>
-              )}
-              {confirmationWord === REQUIRED_CONFIRMATION_WORD && (
-                <p className="text-xs text-green-600 mt-1 text-center">✓ 확인됨</p>
-              )}
-            </div>
             
             <div className="space-y-3">
               <button
-                onClick={() => {
-                  executeChanges(pendingMasterChanges, pendingPriceChanges, true);
-                  setConfirmationWord('');
-                }}
-                disabled={saving || confirmationWord !== REQUIRED_CONFIRMATION_WORD}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-opacity"
+                onClick={() => executeChanges(pendingMasterChanges, pendingPriceChanges, true)}
+                disabled={saving}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
               >
                 {saving ? '저장 중...' : '✓ 예, 모든 템플릿에 적용'}
               </button>
               <button
-                onClick={() => {
-                  executeChanges(pendingMasterChanges, pendingPriceChanges, false);
-                  setConfirmationWord('');
-                }}
+                onClick={() => executeChanges(pendingMasterChanges, pendingPriceChanges, false)}
                 disabled={saving}
                 className="w-full px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 font-medium"
               >
@@ -813,7 +797,6 @@ export default function PricingPage() {
                   setShowApplyAllModal(false);
                   setPendingMasterChanges([]);
                   setPendingPriceChanges([]);
-                  setConfirmationWord('');
                 }}
                 disabled={saving}
                 className="w-full px-4 py-2 text-gray-500 hover:text-gray-700 disabled:opacity-50"

@@ -64,24 +64,37 @@ export async function GET(request: NextRequest) {
     const ingredients = await prisma.ingredientMaster.findMany({
       where: {
         OR: [
-          { nameKo: { contains: query } },
-          { name: { contains: query } }
+          { koreanName: { contains: query } },
+          { englishName: { contains: query } }
         ]
       },
       select: {
         id: true,
-        name: true,
-        nameKo: true,
+        koreanName: true,
+        englishName: true,
         category: true,
+<<<<<<< HEAD
         baseUnit: true,
         yieldRate: true
+=======
+        unit: true,
+        yieldRate: true,
+        templateItems: templateId ? {
+          where: { templateId },
+          select: {
+            price: true,
+            currency: true
+          }
+        } : false
+>>>>>>> 8bed49ac602314e85bc74842749bdb5a1fa01984
       },
       take: limit,
       orderBy: [
-        { name: 'asc' }
+        { englishName: 'asc' }
       ]
     });
 
+<<<<<<< HEAD
     const result = ingredients.map((ing: any) => ({
       id: ing.id,
       name: ing.name,
@@ -92,6 +105,22 @@ export async function GET(request: NextRequest) {
       price: null,
       currency: null
     }));
+=======
+    // Add price info from template if available
+    const result = ingredients.map(ing => {
+      const templateItem = templateId && ing.templateItems?.[0];
+      return {
+        id: ing.id,
+        koreanName: ing.koreanName,
+        englishName: ing.englishName,
+        category: ing.category,
+        unit: ing.unit,
+        yieldRate: ing.yieldRate,
+        price: templateItem ? templateItem.price : null,
+        currency: templateItem ? templateItem.currency : null
+      };
+    });
+>>>>>>> 8bed49ac602314e85bc74842749bdb5a1fa01984
 
     return NextResponse.json(result);
   } catch (error) {

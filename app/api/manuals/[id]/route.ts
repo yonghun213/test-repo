@@ -79,6 +79,29 @@ export async function PUT(
         where: { id },
         data: updateData
       });
+<<<<<<< HEAD
+=======
+      
+      if (group) {
+        groupId = group.id;
+      } else {
+        // Create a new group for this template
+        const template = await prisma.ingredientTemplate.findUnique({
+          where: { id: templateId }
+        });
+        
+        if (template) {
+          const newGroup = await prisma.manualGroup.create({
+            data: {
+              name: `${template.name} Manuals`,
+              templateId: template.id,
+              currency: template.country === 'CA' ? 'CAD' : 'USD'
+            }
+          });
+          groupId = newGroup.id;
+        }
+      }
+>>>>>>> 8bed49ac602314e85bc74842749bdb5a1fa01984
     }
 
     // If ingredients are provided, replace them
@@ -189,6 +212,10 @@ export async function PUT(
                 templateId: targetTemplateId,
                 name: `${template.name} Cost`,
                 totalCost,
+<<<<<<< HEAD
+=======
+                currency: template.country === 'CA' ? 'CAD' : 'USD',
+>>>>>>> 8bed49ac602314e85bc74842749bdb5a1fa01984
                 costPerUnit: currentManual.yield ? totalCost / currentManual.yield : null,
                 calculatedAt: new Date(),
                 costLines: { create: mappedCostLines }

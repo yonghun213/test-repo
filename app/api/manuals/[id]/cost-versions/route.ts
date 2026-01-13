@@ -97,7 +97,7 @@ export async function POST(
     
     for (const item of template.items) {
       // Get package quantity from template item override or master
-      const packageQuantity = item.packageSize ?? 1;
+      const packageQuantity = item.quantity ?? item.ingredient.quantity ?? 1;
       let yieldRate = item.yieldRate ?? item.ingredient.yieldRate;
       if (!yieldRate || yieldRate <= 0) yieldRate = 100; // 수율 0 이하 방지
 
@@ -105,7 +105,7 @@ export async function POST(
         price: item.price,
         currency: item.currency,
         yieldRate,
-        unit: item.packageUnit ?? item.ingredient.baseUnit,
+        unit: item.unit ?? item.ingredient.unit,
         packageQuantity: packageQuantity > 0 ? packageQuantity : 1 // 0으로 나누기 방지
       });
     }
