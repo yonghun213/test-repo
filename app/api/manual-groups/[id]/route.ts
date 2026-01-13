@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+4. import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -25,15 +25,6 @@ export async function GET(
               include: { ingredient: true }
             }
           }
-        },
-        manuals: {
-          include: {
-            ingredients: {
-              include: { ingredientMaster: true }
-            }
-            // costVersions temporarily disabled - table schema needs to be fixed in Turso
-          },
-          orderBy: { name: 'asc' }
         }
       }
     });
@@ -76,104 +67,13 @@ export async function PUT(
       }
     });
 
-    // If applyTemplateToAll is true, calculate costs for all manuals in this group
-    if (applyTemplateToAll && templateId) {
-      const manuals = await prisma.menuManual.findMany({
-        where: { groupId: id },
-        include: {
-          ingredients: {
-            include: { ingredientMaster: true }
-          }
-        }
-      });
-
-      const template = await prisma.ingredientTemplate.findUnique({
-        where: { id: templateId },
-        include: {
-          items: {
-            include: { ingredient: true }
-          }
-        }
-      });
-
-      if (template) {
-        // Build price map
-        const priceMap = new Map<string, { price: number; currency: string; yieldRate: number }>();
-        for (const item of template.items) {
-          priceMap.set(item.ingredientId, {
-            price: item.price,
-            currency: item.currency,
-            yieldRate: item.yieldRate ?? item.ingredient.yieldRate
-          });
-        }
-
-        // Calculate costs for each manual
-        for (const manual of manuals) {
-          // Delete existing cost version for this template
-          await prisma.manualCostVersion.deleteMany({
-            where: { manualId: manual.id, templateId }
-          });
-
-          // Calculate costs
-          let totalCost = 0;
-          const costLines: Array<{
-            ingredientId: string;
-            unitPrice: number;
-            quantity: number;
-            unit: string;
-            yieldRate: number;
-            lineCost: number;
-          }> = [];
-
-          for (const ing of manual.ingredients) {
-            let unitPrice = 0;
-            let yieldRate = 100;
-
-            if (ing.ingredientId && priceMap.has(ing.ingredientId)) {
-              const priceInfo = priceMap.get(ing.ingredientId)!;
-              unitPrice = priceInfo.price;
-              yieldRate = priceInfo.yieldRate;
-            }
-
-            const lineCost = unitPrice * ing.quantity * (100 / yieldRate);
-            totalCost += lineCost;
-
-            costLines.push({
-              ingredientId: ing.id,
-              unitPrice,
-              quantity: ing.quantity,
-              unit: ing.unit,
-              yieldRate,
-              lineCost
-            });
-          }
-
-          // Create new cost version
-          await prisma.manualCostVersion.create({
-            data: {
-              manualId: manual.id,
-              templateId,
-              name: `${template.name} Cost`,
-              totalCost,
-              currency: currency || template.items[0]?.currency || 'CAD',
-              costPerUnit: manual.yield ? totalCost / manual.yield : null,
-              calculatedAt: new Date(),
-              costLines: {
-                create: costLines
-              }
-            }
-          });
-        }
-      }
-    }
+    // Note: Turso schema doesn't have groupId in MenuManual, so template application logic is disabled
 
     // Return updated group with details
     const updatedGroup = await prisma.manualGroup.findUnique({
       where: { id },
       include: {
-        template: true,
-        manuals: true
-          // costVersions temporarily disabled - table schema needs to be fixed in Turso
+        template: true
       }
     });
 
@@ -197,12 +97,7 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    // Unlink manuals from this group (don't delete them)
-    await prisma.menuManual.updateMany({
-      where: { groupId: id },
-      data: { groupId: null }
-    });
-
+    // Note: Turso schema doesn't have groupId in MenuManual
     await prisma.manualGroup.delete({
       where: { id }
     });

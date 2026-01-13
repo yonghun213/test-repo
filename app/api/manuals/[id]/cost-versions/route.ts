@@ -16,20 +16,10 @@ export async function GET(
   const { id: manualId } = await params;
 
   try {
+    // Turso schema doesn't have currency/isActive in ManualCostVersion
     const costVersions = await prisma.manualCostVersion.findMany({
       where: { manualId },
-      select: {
-        id: true,
-        manualId: true,
-        templateId: true,
-        description: true,
-        totalCost: true,
-        currency: true,
-        costPerUnit: true,
-        isActive: true,
-        calculatedAt: true,
-        createdAt: true,
-        updatedAt: true,
+      include: {
         template: true,
         costLines: {
           include: {
@@ -194,11 +184,18 @@ export async function POST(
           name: name || existingVersion.name,
           description: description || existingVersion.description,
           totalCost,
-          currency: template.items[0]?.currency || 'CAD',
           costPerUnit,
           calculatedAt: new Date(),
           costLines: {
-            create: costLines
+            create: costLines.map(cl => ({
+              manualIngredientId: cl.ingredientId,
+              unitPrice: cl.unitPrice,
+              quantity: cl.quantity,
+              unit: cl.unit,
+              yieldRate: cl.yieldRate,
+              lineCost: cl.lineCost,
+              notes: cl.notes
+            }))
           }
         },
         include: {
@@ -221,11 +218,18 @@ export async function POST(
           name: name || `${template.name} Cost`,
           description,
           totalCost,
-          currency: template.items[0]?.currency || 'CAD',
           costPerUnit,
           calculatedAt: new Date(),
           costLines: {
-            create: costLines
+            create: costLines.map(cl => ({
+              manualIngredientId: cl.ingredientId,
+              unitPrice: cl.unitPrice,
+              quantity: cl.quantity,
+              unit: cl.unit,
+              yieldRate: cl.yieldRate,
+              lineCost: cl.lineCost,
+              notes: cl.notes
+            }))
           }
         },
         include: {

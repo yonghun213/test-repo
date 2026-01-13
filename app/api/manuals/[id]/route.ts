@@ -19,16 +19,8 @@ export async function GET(
     const manual = await prisma.menuManual.findUnique({
       where: { id },
       include: {
-        group: {
-          select: {
-            id: true,
-            name: true,
-            templateId: true
-          }
-        },
         ingredients: {
           orderBy: [
-            { section: 'asc' },
             { sortOrder: 'asc' }
           ],
           include: {
@@ -70,55 +62,24 @@ export async function PUT(
 
   try {
     const body = await request.json();
-    const { name, koreanName, imageUrl, shelfLife, yield: yieldValue, yieldUnit, notes, isActive, isArchived, ingredients, sellingPrice, cookingMethod, templateId } = body;
+    const { name, koreanName, yield: yieldValue, yieldUnit, isActive, isDeleted, ingredients, templateId } = body;
 
-    // If templateId is provided, find or create the corresponding group
-    let groupId = undefined;
-    if (templateId) {
-      // Find group with this templateId
-      const group = await prisma.manualGroup.findFirst({
-        where: { templateId }
+    // Build update data - only include defined fields (Turso schema)
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (koreanName !== undefined) updateData.nameKo = koreanName;
+    if (yieldValue !== undefined) updateData.yield = yieldValue;
+    if (yieldUnit !== undefined) updateData.yieldUnit = yieldUnit;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    if (isDeleted !== undefined) updateData.isDeleted = isDeleted;
+
+    // Update manual with Turso schema fields
+    if (Object.keys(updateData).length > 0) {
+      await prisma.menuManual.update({
+        where: { id },
+        data: updateData
       });
-      
-      if (group) {
-        groupId = group.id;
-      } else {
-        // Create a new group for this template
-        const template = await prisma.ingredientTemplate.findUnique({
-          where: { id: templateId }
-        });
-        
-        if (template) {
-          const newGroup = await prisma.manualGroup.create({
-            data: {
-              name: `${template.name} Manuals`,
-              templateId: template.id,
-              currency: 'CAD'
-            }
-          });
-          groupId = newGroup.id;
-        }
-      }
     }
-
-    // Update manual and optionally replace ingredients
-    await prisma.menuManual.update({
-      where: { id },
-      data: {
-        name,
-        koreanName,
-        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
-        shelfLife,
-        yield: yieldValue,
-        yieldUnit,
-        notes,
-        isActive,
-        isArchived, // For Hard Delete (Hidden) or Restore
-        sellingPrice: sellingPrice !== undefined ? sellingPrice : undefined,
-        cookingMethod: cookingMethod ? JSON.stringify(cookingMethod) : undefined,
-        groupId: groupId !== undefined ? groupId : undefined
-      }
-    });
 
     // If ingredients are provided, replace them
     if (ingredients) {
@@ -127,18 +88,16 @@ export async function PUT(
         where: { manualId: id }
       });
 
-      // Create new ingredients
+      // Create new ingredients (Turso schema)
       await prisma.manualIngredient.createMany({
         data: ingredients.map((ing: any, index: number) => ({
           manualId: id,
           ingredientId: ing.ingredientId || null,
-          name: ing.name,
-          koreanName: ing.koreanName,
+          name: ing.name || ing.koreanName || 'Unknown',
           quantity: ing.quantity,
           unit: ing.unit,
-          section: ing.section || 'MAIN',
           sortOrder: index,
-          notes: ing.notes
+          notes: ing.notes || null
         }))
       });
     }
@@ -152,8 +111,9 @@ export async function PUT(
 
       let targetTemplateId = templateId;
       if (!targetTemplateId) {
+        // Turso schema doesn't have isActive in ManualCostVersion
         const costVersion = await prisma.manualCostVersion.findFirst({
-          where: { manualId: id, isActive: true }
+          where: { manualId: id }
         });
         if (costVersion) targetTemplateId = costVersion.templateId;
       }
@@ -201,6 +161,16 @@ export async function PUT(
             where: { manualId_templateId: { manualId: id, templateId: targetTemplateId } }
           });
 
+          // Map costLines with proper Prisma relation connect syntax
+          const mappedCostLines = costLines.map(cl => ({
+            ingredient: { connect: { id: cl.ingredientId } },
+            unitPrice: cl.unitPrice,
+            quantity: cl.quantity,
+            unit: cl.unit,
+            yieldRate: cl.yieldRate,
+            lineCost: cl.lineCost
+          }));
+
           if (existingVersion) {
             await prisma.manualCostLine.deleteMany({ where: { costVersionId: existingVersion.id } });
             await prisma.manualCostVersion.update({
@@ -209,7 +179,7 @@ export async function PUT(
                 totalCost,
                 costPerUnit: currentManual.yield ? totalCost / currentManual.yield : null,
                 calculatedAt: new Date(),
-                costLines: { create: costLines }
+                costLines: { create: mappedCostLines }
               }
             });
           } else {
@@ -219,10 +189,9 @@ export async function PUT(
                 templateId: targetTemplateId,
                 name: `${template.name} Cost`,
                 totalCost,
-                currency: 'CAD',
                 costPerUnit: currentManual.yield ? totalCost / currentManual.yield : null,
                 calculatedAt: new Date(),
-                costLines: { create: costLines }
+                costLines: { create: mappedCostLines }
               }
             });
           }
@@ -234,7 +203,6 @@ export async function PUT(
     const updatedManual = await prisma.menuManual.findUnique({
       where: { id },
       include: {
-        group: { select: { id: true, name: true, templateId: true } },
         ingredients: {
           orderBy: { sortOrder: 'asc' },
           include: { ingredientMaster: true }
@@ -267,13 +235,12 @@ export async function DELETE(
   const user = session.user as { id: string; email: string };
 
   try {
-    // Soft delete: set isActive to false and record who/when
+    // Soft delete: set isDeleted to true (Turso schema)
     await prisma.menuManual.update({
       where: { id },
       data: { 
         isActive: false,
-        deletedAt: new Date(),
-        deletedBy: user.email || 'Unknown'
+        isDeleted: true
       }
     });
 

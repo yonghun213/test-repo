@@ -58,18 +58,32 @@ export default function InventoryPage() {
 
   const fetchData = async () => {
     try {
-      // Fetch ingredients
+      // Fetch ingredients (API returns { ingredients, categories })
       const ingredientsRes = await fetch('/api/ingredients');
       if (ingredientsRes.ok) {
         const data = await ingredientsRes.json();
-        setIngredients(data);
+        // Handle both array and object response formats
+        const ingredientsList = Array.isArray(data) ? data : (data.ingredients || []);
+        const categoriesList = Array.isArray(data) 
+          ? [...new Set(data.map((i: Ingredient) => i.category))]
+          : (data.categories || []);
         
-        // Extract categories
-        const cats = [...new Set(data.map((i: Ingredient) => i.category))];
-        setCategories(cats as string[]);
+        // Map to expected interface (API uses name/nameKo, page expects englishName/koreanName)
+        const mappedIngredients = ingredientsList.map((ing: any) => ({
+          id: ing.id,
+          category: ing.category || '',
+          koreanName: ing.nameKo || ing.koreanName || '',
+          englishName: ing.name || ing.englishName || '',
+          quantity: ing.quantity || 0,
+          unit: ing.baseUnit || ing.unit || 'g',
+          yieldRate: ing.yieldRate || 100
+        }));
+        
+        setIngredients(mappedIngredients);
+        setCategories(categoriesList as string[]);
         
         // Create inventory data from ingredients
-        const invData = data.map((ing: Ingredient) => ({
+        const invData = mappedIngredients.map((ing: Ingredient) => ({
           id: `inv_${ing.id}`,
           ingredientId: ing.id,
           ingredient: ing,

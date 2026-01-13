@@ -155,10 +155,10 @@ export async function PUT(
       where: { costVersionId: versionId }
     });
 
-    // Recalculate costs
+    // Recalculate costs (Turso schema uses manualIngredientId)
     const costLines: Array<{
       costVersionId: string;
-      ingredientId: string;
+      manualIngredientId: string;
       unitPrice: number;
       quantity: number;
       unit: string;
@@ -187,7 +187,7 @@ export async function PUT(
 
       costLines.push({
         costVersionId: versionId,
-        ingredientId: ing.id,
+        manualIngredientId: ing.id,  // Turso schema uses manualIngredientId
         unitPrice,
         quantity: ing.quantity,
         unit,

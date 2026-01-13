@@ -104,11 +104,6 @@ export async function GET(
             ingredientMaster: true,
           },
         },
-        group: {
-          include: {
-            template: true,
-          },
-        },
       },
     });
 
@@ -184,7 +179,7 @@ export async function GET(
     // Rows 4-11: Picture area (merged cells for image placeholder)
     worksheet.mergeCells('B4:H11');
     const pictureCell = worksheet.getCell('B4');
-    pictureCell.value = manual.imageUrl ? '[Image]' : '[No Image]';
+    pictureCell.value = '[No Image]'; // Turso schema doesn't have imageUrl
     pictureCell.alignment = { horizontal: 'center', vertical: 'middle' };
     pictureCell.border = {
       top: BORDERS.thick,
@@ -297,17 +292,10 @@ export async function GET(
 
     // ===== PAGE 2 & 3: Cooking Method with Auto-Pagination =====
     
-    // Parse cooking method (JSON or text)
+    // Parse cooking method - Turso schema doesn't have cookingMethod, use description
     let cookingSteps: { process: string; manual: string; translatedManual?: string }[] = [];
-    try {
-      if (manual.cookingMethod) {
-        cookingSteps = JSON.parse(manual.cookingMethod);
-      }
-    } catch {
-      // If not JSON, treat as plain text
-      if (manual.cookingMethod) {
-        cookingSteps = [{ process: 'Process', manual: manual.cookingMethod }];
-      }
+    if (manual.description) {
+      cookingSteps = [{ process: 'Process', manual: manual.description }];
     }
 
     // Function to create cooking method page

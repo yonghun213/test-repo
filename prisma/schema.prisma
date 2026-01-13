@@ -421,45 +421,39 @@ model ManualGroup {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   template        IngredientTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  manuals         MenuManual[]
 }
 
-// 메뉴 매뉴얼 (레시피 저장)
+// 메뉴 매뉴얼 (레시피 저장) - Turso schema
 model MenuManual {
   id              String             @id @default(cuid())
   name            String             // 메뉴명 (영문)
-  koreanName      String?            // 메뉴명 (한글)
-  imageUrl        String?            // 메뉴 이미지 URL
-  shelfLife       String?            // 유통기한
+  nameKo          String?            // 메뉴명 (한글) - Turso uses nameKo
+  category        String?            // 카테고리
   yield           Float?             // 생산량
   yieldUnit       String?            // 생산량 단위
+  description     String?            // 설명
   sellingPrice    Float?             // 판매가
-  notes           String?
-  cookingMethod   String?            // JSON 형태의 조리법
+  imageUrl        String?            // 이미지 URL (base64)
+  cookingMethod   String?            // 조리법 (JSON string)
+  shelfLife       String?            // 유통기한
   isActive        Boolean            @default(true)
-  isArchived      Boolean            @default(false)
-  deletedAt       DateTime?
-  deletedBy       String?
+  isDeleted       Boolean            @default(false)  // Turso uses isDeleted
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
-  groupId         String?            // 소속 그룹
-  group           ManualGroup?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
   ingredients     ManualIngredient[]
   costVersions    ManualCostVersion[]
 }
 
-// 매뉴얼 재료 (레시피 구성 재료)
+// 매뉴얼 재료 (레시피 구성 재료) - Turso schema
 model ManualIngredient {
   id              String             @id @default(cuid())
   manualId        String
   ingredientId    String?            // 마스터 식재료 연결 (없으면 직접 입력)
-  name            String             // 재료명 (영문)
-  koreanName      String?            // 재료명 (한글)
+  name            String             // 재료명
   quantity        Float              // 사용량
   unit            String             // 단위 (g, ml, ea 등)
-  section         String             @default("MAIN") // MAIN, SAUCE, GARNISH 등
-  sortOrder       Int                @default(0)
   notes           String?
+  sortOrder       Int                @default(0)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   manual          MenuManual         @relation(fields: [manualId], references: [id], onDelete: Cascade)
@@ -467,7 +461,7 @@ model ManualIngredient {
   costLines       ManualCostLine[]
 }
 
-// 원가 버전 (매뉴얼 + 가격 템플릿 조합)
+// 원가 버전 (매뉴얼 + 가격 템플릿 조합) - Turso schema
 model ManualCostVersion {
   id              String             @id @default(cuid())
   manualId        String
@@ -475,9 +469,7 @@ model ManualCostVersion {
   name            String             // 버전명 (예: "Mexico Cost v1")
   description     String?
   totalCost       Float              @default(0) // 총 원가
-  currency        String             @default("CAD")
   costPerUnit     Float?             // 단위당 원가 (yield로 나눈 값)
-  isActive        Boolean            @default(true)
   calculatedAt    DateTime?          // 마지막 계산 시점
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
@@ -488,19 +480,18 @@ model ManualCostVersion {
   @@unique([manualId, templateId])
 }
 
-// 원가 상세 라인 (각 재료별 원가)
+// 원가 상세 라인 (각 재료별 원가) - Turso schema
 model ManualCostLine {
-  id              String             @id @default(cuid())
-  costVersionId   String
-  ingredientId    String             // ManualIngredient ID
-  unitPrice       Float              // 단가 (가격 템플릿에서)
-  quantity        Float              // 사용량
-  unit            String             // 단위
-  yieldRate       Float              @default(100) // 수율 (%)
-  lineCost        Float              // 라인 원가 = unitPrice * quantity * (100/yieldRate)
-  notes           String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  costVersion     ManualCostVersion  @relation(fields: [costVersionId], references: [id], onDelete: Cascade)
-  ingredient      ManualIngredient   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  id                  String             @id @default(cuid())
+  costVersionId       String
+  manualIngredientId  String             // ManualIngredient ID (Turso uses manualIngredientId)
+  unitPrice           Float              // 단가 (가격 템플릿에서)
+  quantity            Float              // 사용량
+  unit                String             // 단위
+  yieldRate           Float              @default(100) // 수율 (%)
+  lineCost            Float              // 라인 원가
+  notes               String?
+  createdAt           DateTime           @default(now())
+  costVersion         ManualCostVersion  @relation(fields: [costVersionId], references: [id], onDelete: Cascade)
+  ingredient          ManualIngredient   @relation(fields: [manualIngredientId], references: [id], onDelete: Cascade)
 }

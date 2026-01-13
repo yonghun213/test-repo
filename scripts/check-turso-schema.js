@@ -41,6 +41,42 @@ async function checkSchema() {
   } catch (e) {
     console.log('  Table not found');
   }
+
+  // Check MenuManual schema
+  console.log('\n📊 MenuManual schema:');
+  try {
+    const schema = await turso.execute("PRAGMA table_info('MenuManual')");
+    schema.rows.forEach(row => console.log(`  - ${row.name}: ${row.type}`));
+  } catch (e) {
+    console.log('  Table not found');
+  }
+
+  // Check ManualIngredient schema
+  console.log('\n📊 ManualIngredient schema:');
+  try {
+    const schema = await turso.execute("PRAGMA table_info('ManualIngredient')");
+    schema.rows.forEach(row => console.log(`  - ${row.name}: ${row.type}`));
+  } catch (e) {
+    console.log('  Table not found');
+  }
+
+  // Check ManualCostVersion schema
+  console.log('\n📊 ManualCostVersion schema:');
+  try {
+    const schema = await turso.execute("PRAGMA table_info('ManualCostVersion')");
+    schema.rows.forEach(row => console.log(`  - ${row.name}: ${row.type}`));
+  } catch (e) {
+    console.log('  Table not found');
+  }
+
+  // Check ManualCostLine schema
+  console.log('\n📊 ManualCostLine schema:');
+  try {
+    const schema = await turso.execute("PRAGMA table_info('ManualCostLine')");
+    schema.rows.forEach(row => console.log(`  - ${row.name}: ${row.type}`));
+  } catch (e) {
+    console.log('  Table not found');
+  }
 }
 
 checkSchema()

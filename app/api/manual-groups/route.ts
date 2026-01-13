@@ -17,14 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const groups = await prisma.manualGroup.findMany({
       include: {
-        template: includeTemplate,
-        manuals: includeManuals ? {
-          include: {
-            ingredients: true
-            // costVersions temporarily disabled - table schema needs to be fixed in Turso
-          },
-          orderBy: { name: 'asc' }
-        } : false
+        template: includeTemplate
       },
       orderBy: { name: 'asc' }
     });

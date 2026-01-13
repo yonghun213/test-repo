@@ -14,9 +14,9 @@ async function recalculateCostVersionsForTemplate(
   templateId: string, 
   ingredientMasterId?: string
 ) {
-  // 해당 템플릿을 사용하는 모든 CostVersion 조회
+  // 해당 템플릿을 사용하는 모든 CostVersion 조회 (Turso schema doesn't have isActive)
   const costVersions = await prisma.manualCostVersion.findMany({
-    where: { templateId, isActive: true },
+    where: { templateId },
     include: {
       costLines: {
         include: {

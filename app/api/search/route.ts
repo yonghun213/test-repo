@@ -30,12 +30,12 @@ export async function GET(request: NextRequest) {
       take: 5,
     });
 
-    // Search manuals
+    // Search manuals (Turso schema uses nameKo)
     const manuals = await prisma.menuManual.findMany({
       where: {
         OR: [
           { name: { contains: query } },
-          { koreanName: { contains: query } },
+          { nameKo: { contains: query } },
         ],
       },
       take: 5,

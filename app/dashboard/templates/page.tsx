@@ -943,16 +943,13 @@ export default function TemplatesPage() {
   const getFilteredManuals = () => {
     let filtered = savedManuals;
 
-    // Filter by Active/Trash/Archived tab
-    if (activeTab === 'trash') {
-      // Soft deleted but not archived
-      filtered = filtered.filter(m => (m as any).isActive === false && !(m as any).isArchived);
-    } else if (activeTab === 'archived') {
-      // Archived (Hard Deleted) - Master only
-      filtered = filtered.filter(m => (m as any).isArchived === true);
+    // Filter by Active/Trash tab (Turso uses isDeleted - handles both boolean and 0/1)
+    if (activeTab === 'trash' || activeTab === 'archived') {
+      // Show deleted manuals
+      filtered = filtered.filter(m => !!(m as any).isDeleted);
     } else {
-      // Active (not deleted, not archived)
-      filtered = filtered.filter(m => (m as any).isActive !== false && !(m as any).isArchived);
+      // Show active (not deleted) manuals
+      filtered = filtered.filter(m => !(m as any).isDeleted);
     }
     
     // Filter by selected group (if using old group system)
@@ -1110,7 +1107,7 @@ export default function TemplatesPage() {
             }`}
           >
             <Settings className="w-4 h-4 inline mr-2" />
-            Saved Manuals ({savedManuals.filter(m => (m as any).isActive !== false && !(m as any).isArchived).length})
+            Saved Manuals ({savedManuals.filter(m => !(m as any).isDeleted).length})
           </button>
           <button
             onClick={() => setActiveTab('costTable')}
@@ -1132,7 +1129,7 @@ export default function TemplatesPage() {
             }`}
           >
             <Trash2 className="w-4 h-4 inline mr-2" />
-            Trash ({savedManuals.filter(m => (m as any).isActive === false && !(m as any).isArchived).length})
+            Trash ({savedManuals.filter(m => !!(m as any).isDeleted).length})
           </button>
           {isMaster && (
             <button
@@ -1144,7 +1141,7 @@ export default function TemplatesPage() {
               }`}
             >
               <Archive className="w-4 h-4 inline mr-2" />
-              Archived ({savedManuals.filter(m => (m as any).isArchived === true).length})
+              Archived ({savedManuals.filter(m => !!(m as any).isDeleted).length})
             </button>
           )}
         </nav>
@@ -1431,7 +1428,7 @@ export default function TemplatesPage() {
                     <option value="">전체 매뉴얼</option>
                     {getAppliedTemplates().map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.name} - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
+                        {t.name} - {savedManuals.filter(m => !(m as any).isDeleted && getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
                       </option>
                     ))}
                     <option value="__none__">미적용 (가격 없음)</option>
@@ -1711,7 +1708,7 @@ export default function TemplatesPage() {
                   <option value="">전체 보기 (모든 국가)</option>
                   {getAppliedTemplates().map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.name} - {savedManuals.filter(m => getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
+                      {t.name} - {savedManuals.filter(m => !(m as any).isDeleted && getManualCost(m)?.template?.id === t.id).length}개 매뉴얼
                     </option>
                   ))}
                 </select>
