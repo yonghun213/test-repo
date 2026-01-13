@@ -9,6 +9,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function Card({ children, className, ...props }: CardProps) {
+  // Card component wrapper
   return (
     <div
       className={cn(
